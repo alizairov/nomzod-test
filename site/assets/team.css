@@ -1,0 +1,23 @@
+/* Jamoa bo'limi */
+.team__head{max-width:640px}
+.team__lead{color:#4a4c66;margin-top:12px}
+.team{display:grid;gap:28px;margin-top:44px}
+@media(min-width:900px){.team{grid-template-columns:1fr 1fr}}
+.member{display:grid;grid-template-columns:1fr;background:#fff;border:1px solid var(--line);border-radius:20px;overflow:hidden;box-shadow:0 20px 50px -34px rgba(30,32,53,.45)}
+@media(min-width:560px){.member{grid-template-columns:220px 1fr}}
+.member__ph{position:relative;background:#e9e9ee;aspect-ratio:4/5}
+@media(min-width:560px){.member__ph{aspect-ratio:auto;min-height:100%}}
+.member__ph img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:50% 20%;filter:grayscale(1) contrast(1.03);transition:filter .5s}
+.member:hover .member__ph img{filter:grayscale(.15)}
+.member__ph::after{content:"";position:absolute;inset:auto 0 0 0;height:4px;background:linear-gradient(90deg,var(--red),#7A2E5C,var(--indigo))}
+.member__body{padding:26px 26px 24px}
+.member__role{font-size:.8rem;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:var(--red);margin:0}
+.member__name{font-size:1.55rem;line-height:1.15;margin:6px 0 4px;letter-spacing:-.02em}
+.member__exp{display:inline-block;font-size:.85rem;font-weight:500;color:var(--navy);background:var(--gray);border-radius:999px;padding:4px 12px;margin:6px 0 12px}
+.member__bio{color:#4a4c66;margin:0 0 14px;font-size:.98rem}
+.member__list{list-style:none;padding:0;margin:0 0 14px;display:grid;gap:10px}
+.member__list li{font-size:.93rem;line-height:1.45;color:#3b3d57;padding-left:14px;border-left:2px solid #f0c9ce}
+.member__list b{color:var(--navy);display:block;font-weight:700}
+.member__list span{color:#8a8ca3;font-size:.84rem}
+.member__tags{display:flex;flex-wrap:wrap;gap:6px;margin:0;padding:0;list-style:none}
+.member__tags li{font-size:.8rem;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:#4a4c66}
