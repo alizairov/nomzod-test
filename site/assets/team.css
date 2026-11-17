@@ -30,3 +30,9 @@
 .member__teams li{font-size:.8rem;padding:4px 10px;border-radius:999px;background:#fff;color:#3b3d57;border:1px solid var(--line)}
 .member__teams li:first-child{background:var(--navy);color:#fff;border-color:var(--navy)}
 @media(min-width:560px){.member__ph{align-self:start;aspect-ratio:4/5;min-height:0}.member{align-items:start}}
+.member__more{margin:-4px 0 14px}
+.member__more summary{cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:8px;font-size:.86rem;font-weight:500;color:var(--red);padding:6px 0}
+.member__more summary::-webkit-details-marker{display:none}
+.member__more summary::after{content:"";width:8px;height:8px;border-right:2px solid currentColor;border-bottom:2px solid currentColor;transform:rotate(45deg) translateY(-2px);transition:transform .25s}
+.member__more[open] summary::after{transform:rotate(-135deg) translateY(-2px)}
+.member__more .member__list{margin-top:8px}
