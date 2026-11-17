@@ -29,4 +29,3 @@ jobs:
           path: site
       - id: deployment
         uses: actions/deploy-pages@v4
-# qayta ishga tushirish: 2026-11-17
