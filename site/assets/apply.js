@@ -154,9 +154,28 @@
   phone.addEventListener('focus', function () { if (!phone.value) phone.value = '+998 '; });
   phone.addEventListener('keydown', function (e) { if (e.key === 'Backspace' && phone.value.length <= 5) e.preventDefault(); });
 
-  var salary = $('a-salary');
-  salary.addEventListener('input', function () {
-    salary.value = salary.value.replace(/\D/g, '').slice(0, 12).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
+  /* rezyume fayli: xotirada saqlanadi (localStorage'ga sig'maydi) */
+  var CV_MAX = 5 * 1024 * 1024, CV_EXT = /\.(pdf|docx?|jpe?g|png)$/i;
+  var cvInput = $('a-cvfile'), cvNameEl = $('a-cv-name'), cvData = null;
+  function paintCv() {
+    var f = cvInput.closest('.field');
+    if (cvData) { cvNameEl.textContent = cvData.name; f.classList.add('has-file'); }
+    else if (state.profile.cv_name) { cvNameEl.textContent = 'Faylni qayta tanlang: ' + state.profile.cv_name; f.classList.remove('has-file'); }
+    else { cvNameEl.textContent = 'Faylni tanlang'; f.classList.remove('has-file'); }
+  }
+  cvInput.addEventListener('change', function () {
+    var file = cvInput.files && cvInput.files[0];
+    if (!file) return;
+    if (!CV_EXT.test(file.name)) { cvData = null; paintCv(); setErr('cv', 'Faqat PDF, Word yoki rasm (JPG, PNG) fayl yuklang'); return; }
+    if (file.size > CV_MAX) { cvData = null; paintCv(); setErr('cv', 'Fayl hajmi 5 MB dan oshmasin'); return; }
+    var r = new FileReader();
+    r.onload = function () {
+      var url = String(r.result || '');
+      cvData = { name: file.name, mime: file.type || 'application/octet-stream', b64: url.slice(url.indexOf(',') + 1) };
+      state.profile.cv_name = file.name; save(); setErr('cv', ''); paintCv();
+    };
+    r.onerror = function () { cvData = null; paintCv(); setErr('cv', "Faylni o'qib bo'lmadi, boshqa fayl tanlang"); };
+    r.readAsDataURL(file);
   });
 
   var profNames = [];
@@ -188,6 +207,7 @@
   profSec.addEventListener('input', function () { readProfile(); save(); });
   profSec.addEventListener('change', function () { readProfile(); save(); });
   profNames.forEach(function (n) { if (n in state.profile) setVal(n, state.profile[n]); });
+  paintCv();
   phone.value = formatPhone(phone.value || '');
 
   function validateProfile() {
@@ -195,24 +215,18 @@
     function bad(name, msg) { setErr(name, msg); if (msg && !first) first = name; }
     Array.prototype.forEach.call(profSec.querySelectorAll('.field'), function (f) {
       var er = f.querySelector('.err[data-for]'); if (!er) return;
-      var name = er.getAttribute('data-for'), v = getVal(name);
+      var name = er.getAttribute('data-for'), v = name === 'cv' ? (cvData ? cvData.name : '') : getVal(name);
       var req = f.hasAttribute('data-req');
       var empty = Array.isArray(v) ? !v.length : !String(v).trim();
       var msg = '';
-      if (req && empty) msg = (f.tagName === 'FIELDSET') ? 'Variantlardan birini tanlang' : "Maydonni to'ldiring";
+      if (req && empty) msg = name === 'cv' ? (state.profile.cv_name ? 'Sahifa qayta ochilgani uchun rezyumeni qayta yuklang' : 'Rezyumeingizni yuklang')
+        : (f.tagName === 'FIELDSET') ? 'Variantlardan birini tanlang' : "Maydonni to'ldiring";
       if (!msg && !empty) {
         v = String(v).trim();
         if (name === 'fullname' && v.length < 3) msg = 'Ism va familiyangizni kiriting';
         else if (name === 'phone') {
           var d = v.replace(/\D/g, '');
           if (!(d.length === 12 && d.indexOf('998') === 0)) msg = "Telefon raqamni to'liq kiriting";
-        } else if (name === 'birth_year') {
-          var y = parseInt(v, 10);
-          if (!/^\d{4}$/.test(v) || y < 1960 || y > 2008) msg = "Tug'ilgan yilni 1960 dan 2008 gacha oraliqda kiriting";
-        } else if (name === 'salary') {
-          if (v.replace(/\D/g, '').length < 4) msg = "Maoshni raqamda kiriting (so'mda)";
-        } else if (name === 'cv_link') {
-          if (!/^(https?:\/\/)?[^\s\/.]+\.[^\s]{2,}$/i.test(v)) msg = "Havolani to'g'ri kiriting";
         }
       }
       bad(name, msg);
@@ -507,10 +521,9 @@
       var v = getVal(n);
       if (Array.isArray(v)) v = v.join(', ');
       v = String(v).trim();
-      if (n === 'cv_link' && v && !/^https?:\/\//i.test(v)) v = 'https://' + v;
-      if (n === 'salary') v = v.replace(/\s/g, '');
       p.set(n, v);
     });
+    if (cvData) { p.set('cv_name', cvData.name); p.set('cv_mime', cvData.mime); p.set('cv_b64', cvData.b64); }
     p.set('answers', JSON.stringify({ sjt: sjt, pairs: state.pairs, statements: state.stmt, open: open }));
     p.set('total_ms', String(state.startedAt ? Math.max(0, Date.now() - state.startedAt) : 0));
     p.set('page', location.href);
@@ -533,7 +546,8 @@
     var payload = buildPayload();
     if (DEMO) {
       var o = {}; payload.forEach(function (v, k) { o[k] = v; });
-      console.log('[demo] ariza ma\'lumotlari:', o);
+      console.log('[demo] cv:', o.cv_name, o.cv_mime, o.cv_b64 ? o.cv_b64.length : 0); console.log('[demo] ariza ma\'lumotlari:', o);
+      if (o.cv_b64) o.cv_b64 = '(' + o.cv_b64.length + ' belgi)';
       try { console.log('[demo] answers:', JSON.parse(o.answers)); } catch (e) {}
       finish(); return;
     }

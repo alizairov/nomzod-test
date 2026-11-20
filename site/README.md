@@ -28,6 +28,7 @@ Bir sahifali statik sayt (HTML/CSS/JS, build kerak emas).
 ## Vakansiyalar va ariza
 Fayllar:
 - `vakansiyalar/index.html` — ochiq vakansiyalar ro'yxati (ulashish uchun havola: `/vakansiyalar/`)
+- Rezyume fayli (PDF/Word/rasm, 5 MB gacha) Google Drive'dagi `Nomzod — Rezyumelar` papkasiga saqlanadi, havolasi jadvalda. Birinchi deploy'da Drive ruxsatini tasdiqlang.
 - `vakansiyalar/hr/index.html` — "HR mutaxassis" vakansiyasi va ko'p bosqichli ariza
 - `assets/apply.js` — umumiy ariza mexanizmi (savollarni `window.VACANCY_TEST` dan va vakansiya turini formadagi `data-vacancy` dan oladi)
 - `assets/tests/hr.js` — HR vakansiyasi savollari (faqat matn, baholash kaliti YO'Q)

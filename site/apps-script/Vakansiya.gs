@@ -12,12 +12,13 @@ var NOMZODLAR = 'Nomzodlar';
 var XOM = 'Javoblar_xom';
 var TZ = 'Asia/Tashkent';
 
-var HEADERS = ['Sana', 'Vakansiya', 'Ism familiya', 'Telefon', 'Telegram', "Tug'ilgan yil", 'Yashash joyi', 'HR tajriba',
-  'Oxirgi ish/lavozim', "HR yo'nalishlari", 'C-level bilan ishlagan', "Ma'lumoti", 'Tillar', 'Kutilgan maosh', 'Ish boshlash', 'Rezyume',
+var HEADERS = ['Sana', 'Vakansiya', 'Ism familiya', 'Telefon', 'Telegram', 'Rezyume',
   'C-level indeks', 'Fidbekka ochiqlik', 'Moslashuvchanlik', 'Boshqaruvga moyillik', "Qat'iylik", 'Tizimli fikrlash', 'Adolat va etika', 'Insoniylik',
   'Samimiylik (0–6)', 'Ishonchlilik', 'Xulosa', 'O1 javob', 'O2 javob', 'O3 javob', 'Vaqt (daq)', 'Holat', "Mas'ul izoh"];
 var XOM_HEADERS = ['Sana', 'Ism', 'Telefon', 'answers JSON', 'page', 'ua'];
-var DIM_ORDER = ['FB', 'MOS', 'BOSH', 'QAT', 'STR', 'ADL', 'EMP']; // 18–24-ustunlar tartibi
+var DIM_ORDER = ['FB', 'MOS', 'BOSH', 'QAT', 'STR', 'ADL', 'EMP']; // 8–14-ustunlar tartibi
+var CV_FOLDER = 'Nomzod — Rezyumelar';
+var CV_MAX = 5 * 1024 * 1024;
 var HOLATLAR = ['Yangi', "Ko'rilmoqda", 'Suhbat', 'Kompaniya bilan uchrashuv', 'Qabul qilindi', 'Rad etildi'];
 
 /* ---------- web app ---------- */
@@ -48,11 +49,12 @@ function doPost(e) {
     var scoreCells = DIM_ORDER.map(function (d) { return f && f[d] !== undefined ? f[d] : ''; });
     var minutes = Math.round((Number(p.total_ms) || 0) / 6000) / 10;
 
+    var cvUrl = '';
+    try { cvUrl = saveCv_(p); } catch (err) { cvUrl = 'Fayl saqlanmadi: ' + String(err).slice(0, 200); }
+
     var row = [
       sana, clean_(p.vacancy_title || p.vacancy, 200), clean_(p.fullname, 200), clean_(p.phone, 50), clean_(p.telegram, 100),
-      clean_(p.birth_year, 10), clean_(p.city, 200), clean_(p.hr_exp, 100), clean_(p.last_job, 300), clean_(p.hr_areas, 500),
-      clean_(p.clevel_exp, 100), clean_(p.education, 300), clean_(p.languages, 200), clean_(p.salary, 50), clean_(p.start, 100),
-      clean_(p.cv_link, 500),
+      cvUrl,
       sc ? sc.clevelIndex : ''
     ].concat(scoreCells).concat([
       sc ? 6 - sc.lieCount : '',
@@ -63,7 +65,7 @@ function doPost(e) {
     ]);
     getSheet_(NOMZODLAR, HEADERS).appendRow(row);
 
-    notifyTelegram_(p, sc);
+    notifyTelegram_(p, sc, cvUrl);
     return json_({ ok: true });
   } catch (err) {
     return json_({ ok: false, error: String(err) });
@@ -76,23 +78,38 @@ function doGet() {
   return json_({ ok: true, service: 'Nomzod vakansiyalar' });
 }
 
+/* ---------- rezyume faylini Drive'ga saqlash ---------- */
+function saveCv_(p) {
+  if (!p.cv_b64) return '';
+  var bytes = Utilities.base64Decode(String(p.cv_b64));
+  if (bytes.length > CV_MAX) return 'Fayl juda katta';
+  var ext = String(p.cv_name || '').split('.').pop().toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 5) || 'pdf';
+  var who = String(p.fullname || 'nomzod').replace(/[\\/:*?"<>|]/g, ' ').trim().slice(0, 80);
+  var name = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd') + ' — ' + who + ' — ' + (p.vacancy_title || p.vacancy || '') + '.' + ext;
+  var mime = String(p.cv_mime || 'application/octet-stream').slice(0, 100);
+  var it = DriveApp.getFoldersByName(CV_FOLDER);
+  var folder = it.hasNext() ? it.next() : DriveApp.createFolder(CV_FOLDER);
+  var file = folder.createFile(Utilities.newBlob(bytes, mime, name));
+  return file.getUrl();
+}
+
 /* ---------- bir martalik sozlash ---------- */
 function setup() {
   var sh = getSheet_(NOMZODLAR, HEADERS);
   getSheet_(XOM, XOM_HEADERS);
   var last = 1000;
-  // ball ustunlari (17–24): 0–100 rang shkalasi
+  // ball ustunlari (7–14): 0–100 rang shkalasi
   var rules = []; // qayta ishga tushirilsa, qoidalar takrorlanmaydi
-  rules.push(scale_(sh.getRange(2, 17, last, 8), 0, 50, 100));
-  // samimiylik (25): 0–6
-  rules.push(scale_(sh.getRange(2, 25, last, 1), 0, 3, 6));
+  rules.push(scale_(sh.getRange(2, 7, last, 8), 0, 50, 100));
+  // samimiylik (15): 0–6
+  rules.push(scale_(sh.getRange(2, 15, last, 1), 0, 3, 6));
   sh.setConditionalFormatRules(rules);
-  // holat ro'yxati (32-ustun)
-  sh.getRange(2, 32, last, 1).setDataValidation(
+  // holat ro'yxati (22-ustun)
+  sh.getRange(2, 22, last, 1).setDataValidation(
     SpreadsheetApp.newDataValidation().requireValueInList(HOLATLAR, true).setAllowInvalid(true).build());
   sh.setColumnWidths(1, HEADERS.length, 130);
-  sh.setColumnWidth(27, 320);
-  sh.setColumnWidths(28, 3, 360);
+  sh.setColumnWidth(17, 320);
+  sh.setColumnWidths(18, 3, 360);
 }
 
 function scale_(range, min, mid, max) {
@@ -231,14 +248,14 @@ function clean_(v, limit) {
   return /^[=+\-@\t\r]/.test(v) ? "'" + v : v;
 }
 
-function notifyTelegram_(p, sc) {
+function notifyTelegram_(p, sc, cvUrl) {
   var props = PropertiesService.getScriptProperties();
   var token = props.getProperty('TELEGRAM_TOKEN');
   var chat = props.getProperty('CHAT_ID');
   if (!token || !chat) return;
   var text = 'Yangi ariza — ' + (p.vacancy_title || 'vakansiya') + '\n\n' +
     'Ism: ' + (p.fullname || '—') + '\nTelefon: ' + (p.phone || '—') +
-    '\nTelegram: ' + (p.telegram || '—') + '\nHR tajriba: ' + (p.hr_exp || '—') +
+    '\nTelegram: ' + (p.telegram || '—') + '\nRezyume: ' + (cvUrl || '—') +
     (sc ? '\nC-level indeks: ' + sc.clevelIndex + '\nIshonchlilik: ' + sc.reliability + '\nXulosa: ' + sc.xulosa : '\n(ball hisoblanmadi)');
   try {
     UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
