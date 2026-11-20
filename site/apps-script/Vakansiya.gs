@@ -2,7 +2,7 @@
  * Nomzod — vakansiya arizalarini qabul qilish (Google Apps Script web app, jadvalga bog'langan).
  *
  * Ishlashi uchun shu loyihada ALOHIDA `Kalit.gs` fayli bo'lishi kerak: u global `KALIT` o'zgaruvchisini
- * e'lon qiladi (baholash kaliti). Kalit GitHub'da YO'Q va bu faylga ko'chirilmaydi.
+ * e'lon qiladi (baholash kaliti, v3). Kalit GitHub'da YO'Q va bu faylga ko'chirilmaydi.
  * `KALIT` topilmasa, ariza xom holda saqlanadi, ball ustunlari bo'sh qoladi.
  *
  * Birinchi marta: `setup()` ni bir marta ishga tushiring (varaqlar va rang shkalasi yaratiladi).
@@ -12,14 +12,16 @@ var NOMZODLAR = 'Nomzodlar';
 var XOM = 'Javoblar_xom';
 var TZ = 'Asia/Tashkent';
 
-var HEADERS = ['Sana', 'Vakansiya', 'Ism familiya', 'Telefon', 'Telegram', 'Rezyume',
-  'C-level indeks', 'Fidbekka ochiqlik', 'Moslashuvchanlik', 'Boshqaruvga moyillik', "Qat'iylik", 'Tizimli fikrlash', 'Adolat va etika', 'Insoniylik', 'Mantiqiy fikrlash',
-  'Samimiylik (0–6)', 'Ishonchlilik', 'Xulosa', 'O1 javob', 'O2 javob', 'O3 javob', 'Vaqt (daq)', 'Holat', "Mas'ul izoh"];
+// Sifat ustunlari (KALIT v3 tartibida). KALIT bo'lmasa ham sarlavhalar o'zgarmaydi.
+var SIFATLAR = ["Qat'iylik", "Rahbarga ta'sir va tashabbus", 'Fidbekka ochiqlik', 'Tizimli fikrlash', 'Moslashuvchanlik', 'Adolat va izchillik'];
+var HEADERS = ['Sana', 'Vakansiya', 'Ism familiya', 'Telefon', 'Telegram', 'Rezyume', 'Ball (100)', 'Xulosa']
+  .concat(SIFATLAR)
+  .concat(['Belgilar', 'Izoh', 'Bitta savol javobi', 'Vaqt (daq)', 'Holat', "Mas'ul izoh"]);
 var XOM_HEADERS = ['Sana', 'Ism', 'Telefon', 'answers JSON', 'page', 'ua'];
-var DIM_ORDER = ['FB', 'MOS', 'BOSH', 'QAT', 'STR', 'ADL', 'EMP']; // 8–14-ustunlar tartibi (15-ustun: mantiqiy fikrlash)
 var CV_FOLDER = 'Nomzod — Rezyumelar';
 var CV_MAX = 5 * 1024 * 1024;
 var HOLATLAR = ['Yangi', "Ko'rilmoqda", 'Suhbat', 'Kompaniya bilan uchrashuv', 'Qabul qilindi', 'Rad etildi'];
+var BOT_MS = 8000; // shundan tez to'ldirilgan anketa — bot
 
 /* ---------- web app ---------- */
 function doPost(e) {
@@ -28,6 +30,8 @@ function doPost(e) {
     lock.waitLock(15000);
     var p = (e && e.parameter) || {};
     if (p.website) return json_({ ok: true }); // spam-bot (honeypot)
+    var tms = Number(p.total_ms) || 0;
+    if (tms > 0 && tms < BOT_MS) return json_({ ok: true }); // juda tez to'ldirilgan — saqlamaymiz
 
     var answers = parseAnswers_(p.answers);
     var sana = Utilities.formatDate(new Date(), TZ, 'dd.MM.yyyy HH:mm');
@@ -44,29 +48,30 @@ function doPost(e) {
       if (typeof KALIT !== 'undefined') sc = score_(answers, KALIT);
     } catch (err) { sc = null; }
 
-    var open = (answers && answers.open) || {};
-    var f = sc ? sc.final : null;
-    var scoreCells = DIM_ORDER.map(function (d) { return f && f[d] !== undefined ? f[d] : ''; });
-    scoreCells.push(sc ? sc.log : '');
-    var minutes = Math.round((Number(p.total_ms) || 0) / 6000) / 10;
-
+    var minutes = Math.round(tms / 6000) / 10;
     var cvUrl = '';
     try { cvUrl = saveCv_(p); } catch (err) { cvUrl = 'Fayl saqlanmadi: ' + String(err).slice(0, 200); }
 
-    var row = [
-      sana, clean_(p.vacancy_title || p.vacancy, 200), clean_(p.fullname, 200), clean_(p.phone, 50), clean_(p.telegram, 100),
-      cvUrl,
-      sc ? sc.clevelIndex : ''
-    ].concat(scoreCells).concat([
-      sc ? 6 - sc.lieCount : '',
-      sc ? sc.reliability : '',
-      sc ? sc.xulosa : '',
-      clean_(open.o1, 5000), clean_(open.o2, 5000), clean_(open.o3, 5000),
-      minutes, 'Yangi', ''
-    ]);
-    getSheet_(NOMZODLAR, HEADERS).appendRow(row);
+    var vals = {
+      'Sana': sana,
+      'Vakansiya': clean_(p.vacancy_title || p.vacancy, 200),
+      'Ism familiya': clean_(p.fullname, 200),
+      'Telefon': clean_(p.phone, 50),
+      'Telegram': clean_(p.telegram, 100),
+      'Rezyume': cvUrl,
+      'Ball (100)': sc ? sc.ball : '',
+      'Xulosa': sc ? sc.xulosa : '',
+      'Belgilar': sc ? sc.belgilar.join('; ') : '',
+      'Izoh': sc ? sc.izoh : '',
+      'Bitta savol javobi': clean_(answers.savol, 5000),
+      'Vaqt (daq)': minutes,
+      'Holat': 'Yangi',
+      "Mas'ul izoh": ''
+    };
+    if (sc) Object.keys(sc.sifatlar).forEach(function (nom) { vals[nom] = Math.round(sc.sifatlar[nom] * 10) / 10; });
+    getSheet_(NOMZODLAR, HEADERS).appendRow(HEADERS.map(function (hd) { return vals[hd] !== undefined ? vals[hd] : ''; }));
 
-    notifyTelegram_(p, sc, cvUrl);
+    notifyTelegram_(p, sc, cvUrl, answers);
     return json_({ ok: true });
   } catch (err) {
     return json_({ ok: false, error: String(err) });
@@ -95,22 +100,26 @@ function saveCv_(p) {
 }
 
 /* ---------- bir martalik sozlash ---------- */
+function col_(name) { return HEADERS.indexOf(name) + 1; }
+
 function setup() {
   var sh = getSheet_(NOMZODLAR, HEADERS);
   getSheet_(XOM, XOM_HEADERS);
   var last = 1000;
-  // ball ustunlari (7–15): 0–100 rang shkalasi
   var rules = []; // qayta ishga tushirilsa, qoidalar takrorlanmaydi
-  rules.push(scale_(sh.getRange(2, 7, last, 9), 0, 50, 100));
-  // samimiylik (16): 0–6
-  rules.push(scale_(sh.getRange(2, 16, last, 1), 0, 3, 6));
+  // ball: 0–100
+  rules.push(scale_(sh.getRange(2, col_('Ball (100)'), last, 1), 0, 50, 100));
+  // sifatlar: 1–5
+  rules.push(scale_(sh.getRange(2, col_(SIFATLAR[0]), last, SIFATLAR.length), 1, 3, 5));
   sh.setConditionalFormatRules(rules);
-  // holat ro'yxati (23-ustun)
-  sh.getRange(2, 23, last, 1).setDataValidation(
+  // holat ro'yxati
+  sh.getRange(2, col_('Holat'), last, 1).setDataValidation(
     SpreadsheetApp.newDataValidation().requireValueInList(HOLATLAR, true).setAllowInvalid(true).build());
   sh.setColumnWidths(1, HEADERS.length, 130);
-  sh.setColumnWidth(18, 320);
-  sh.setColumnWidths(19, 3, 360);
+  sh.setColumnWidth(col_('Xulosa'), 260);
+  sh.setColumnWidth(col_('Belgilar'), 260);
+  sh.setColumnWidth(col_('Izoh'), 260);
+  sh.setColumnWidth(col_('Bitta savol javobi'), 420);
 }
 
 function scale_(range, min, mid, max) {
@@ -132,106 +141,42 @@ function getSheet_(name, headers) {
   return sh;
 }
 
-/* ---------- ball hisoblash (KALIT v2; alohida sinash mumkin) ---------- */
+/* ---------- ball hisoblash (KALIT v3; Turon testBaho mantiqi; alohida sinash mumkin) ---------- */
 function score_(answers, kalit) {
   answers = answers || {};
-  var dims = kalit.dims;
-  var stmtAns = answers.statements || {};
-
-  // bo'lim (logic / daily) bo'yicha o'lchovlar foizi
-  function sectionPct(sec) {
-    var ans = answers[sec] || {}, key = kalit[sec] || {};
-    var raw = {}, max = {}, min = {};
-    dims.forEach(function (d) { raw[d] = 0; max[d] = 0; min[d] = 0; });
-    var w = function (opt, d) { return (opt && typeof opt === 'object' && opt[d]) || 0; };
-    Object.keys(key).forEach(function (id) {
-      var opts = key[id], ids = Object.keys(opts);
-      var a = ans[id], pick = a && ids.indexOf(a.pick) >= 0 ? a.pick : null;
-      dims.forEach(function (d) {
-        var hi = -Infinity, lo = Infinity;
-        ids.forEach(function (o) { var v = w(opts[o], d); if (v > hi) hi = v; if (v < lo) lo = v; });
-        if (isFinite(hi)) { max[d] += hi; min[d] += lo; }
-        if (pick) raw[d] += w(opts[pick], d);
-      });
+  var test = answers.test || {};
+  var sifatlar = {}, vals = [];
+  Object.keys(kalit.sifatlar).forEach(function (nom) {
+    var q = kalit.sifatlar[nom].map(function (id) {
+      var rev = /R$/.test(id);
+      var x = Number(test[id.replace(/R$/, '')]) || 3;
+      return rev ? 6 - x : x;
     });
-    var pct = {};
-    dims.forEach(function (d) {
-      var range = max[d] - min[d];
-      pct[d] = range > 0 ? clamp_((raw[d] - min[d]) / range * 100) : 50;
-    });
-    return pct;
-  }
-  var logicPct = sectionPct('logic'), dailyPct = sectionPct('daily');
-
-  // qadriyatlar tartibi
-  var order = Array.isArray(answers.values) ? answers.values : [];
-  var vKeys = Object.keys(kalit.values || {}), n = vKeys.length;
-  var valuesPct = {};
-  dims.forEach(function (d) { valuesPct[d] = 50; });
-  vKeys.forEach(function (vid) {
-    var d = kalit.values[vid], r = order.indexOf(vid) + 1; // 1-o'rin = 1
-    if (valuesPct[d] === undefined) return;
-    valuesPct[d] = r > 0 && n > 1 ? clamp_((n - r) / (n - 1) * 100) : 50;
+    var avg = q.reduce(function (a, b) { return a + b; }, 0) / q.length;
+    sifatlar[nom] = avg; vals.push(avg);
   });
+  var umumiy = vals.length ? vals.reduce(function (a, b) { return a + b; }, 0) / vals.length : 0;
 
-  var mix = kalit.mix, fin = {};
-  dims.forEach(function (d) {
-    fin[d] = clamp_(Math.round(mix.logic * logicPct[d] + mix.daily * dailyPct[d] + mix.values * valuesPct[d]));
+  var belgilar = [];
+  Object.keys(sifatlar).forEach(function (nom) {
+    if (sifatlar[nom] < kalit.pastChegara) belgilar.push('Past: ' + nom.toLowerCase());
   });
+  var javoblar = kalit.ids.map(function (id) { return test[id]; });
+  var xil = {};
+  javoblar.forEach(function (v) { xil[String(v)] = 1; });
+  if (Object.keys(xil).length === 1) belgilar.push('Hamma gapga bir xil javob berilgan');
+  var savol = String(answers.savol || '');
+  if (savol.length < kalit.qisqaJavob) belgilar.push('Javob juda qisqa');
 
-  // mantiqiy fikrlash (LOG) va mantiqsiz javoblar
-  var lAns = answers.logic || {}, lKey = kalit.logic || {}, lIds = Object.keys(lKey);
-  var okCount = 0, illCount = 0;
-  lIds.forEach(function (id) {
-    var a = lAns[id], v = a && lKey[id][a.pick];
-    if (v === undefined) return;
-    if (v === 'ill') illCount++; else okCount++;
-  });
-  var LOG = lIds.length ? clamp_(Math.round(100 * okCount / lIds.length)) : 0;
+  var ideal = vals.length > 0 && vals.every(function (v) { return v === 5; });
+  var izoh = ideal ? 'Barcha javoblar ideal — suhbatda misollar bilan tekshiring' : '';
 
-  var cl = 0;
-  Object.keys(kalit.clevel).forEach(function (k) { cl += kalit.clevel[k] * (k === 'LOG' ? LOG : (fin[k] || 0)); });
-  var clevelIndex = clamp_(Math.round(cl));
+  var xulosa;
+  if (umumiy >= kalit.xulosa.yashil && belgilar.length === 0) xulosa = '✅ Tavsiya: 1-suhbatga chaqirish';
+  else if (umumiy >= kalit.xulosa.sariq && belgilar.length <= 1) xulosa = "🟡 Ko'rib chiqish kerak";
+  else xulosa = '🔴 Mos kelmasligi mumkin';
 
-  var lieCount = 0;
-  Object.keys(kalit.lie).forEach(function (id) { if (stmtAns[id] === kalit.lie[id]) lieCount++; });
-
-  var times = [];
-  lIds.forEach(function (id) {
-    var a = lAns[id];
-    if (a && typeof a.ms === 'number' && isFinite(a.ms) && a.ms > 0) times.push(a.ms);
-  });
-  var medianMs = median_(times);
-
-  var reliability = 'Yuqori';
-  if (lieCount >= 3) reliability = "Past — o'zini ideal ko'rsatishga moyil";
-  else if (lieCount === 2) reliability = "O'rta";
-  if (illCount >= 4) reliability += " · ko'p mantiqsiz javob — e'tiborsiz to'ldirgan bo'lishi mumkin";
-  if (medianMs !== null && medianMs < 7000) reliability += ' · juda tez javob bergan';
-
-  var notes = [];
-  if (fin.QAT >= 65 && fin.EMP < 40) notes.push("Qat'iy, lekin insoniy tomoni zaifroq");
-  if (fin.EMP >= 65 && fin.QAT < 40) notes.push('Yumshoq — qiyin qarorlardan qochishi mumkin');
-  if (fin.FB < 40) notes.push('Fidbekka yopiqroq');
-  if (fin.ADL < 40) notes.push("Etika/maxfiylik bo'yicha xavf — suhbatda tekshiring");
-  if (fin.BOSH < 35) notes.push('Tashabbus kam');
-  if (fin.STR >= 70) notes.push('Tizimli fikrlaydi');
-  if (LOG < 50) notes.push('Mantiqiy xulosa chiqarishda zaif');
-  if (clevelIndex >= 65) notes.push('C-level bilan ishlashga kuchli nomzod');
-  else if (clevelIndex >= 52) notes.push("O'rta — suhbatda chuqurroq tekshiring");
-  else notes.push('C-level rol uchun zaifroq');
-
-  return {
-    final: fin, log: LOG, clevelIndex: clevelIndex, lieCount: lieCount, illCount: illCount, reliability: reliability,
-    xulosa: notes.join('; '), logicPct: logicPct, dailyPct: dailyPct, valuesPct: valuesPct, medianMs: medianMs
-  };
-}
-
-function clamp_(x) { return Math.max(0, Math.min(100, x)); }
-function median_(a) {
-  if (!a.length) return null;
-  var s = a.slice().sort(function (x, y) { return x - y; }), m = Math.floor(s.length / 2);
-  return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  return { ball: Math.round(umumiy * 20), umumiy: umumiy, sifatlar: sifatlar, belgilar: belgilar, izoh: izoh, xulosa: xulosa };
 }
 
 /* ---------- yordamchilar ---------- */
@@ -248,19 +193,34 @@ function clean_(v, limit) {
   return /^[=+\-@\t\r]/.test(v) ? "'" + v : v;
 }
 
-function notifyTelegram_(p, sc, cvUrl) {
+function bar_(v) { var n = Math.round(v); return new Array(n + 1).join('▰') + new Array(5 - n + 1).join('▱'); }
+
+function notifyTelegram_(p, sc, cvUrl, answers) {
   var props = PropertiesService.getScriptProperties();
   var token = props.getProperty('TELEGRAM_TOKEN');
   var chat = props.getProperty('CHAT_ID');
   if (!token || !chat) return;
-  var text = 'Yangi ariza — ' + (p.vacancy_title || 'vakansiya') + '\n\n' +
-    'Ism: ' + (p.fullname || '—') + '\nTelefon: ' + (p.phone || '—') +
-    '\nTelegram: ' + (p.telegram || '—') + '\nRezyume: ' + (cvUrl || '—') +
-    (sc ? '\nC-level indeks: ' + sc.clevelIndex + '\nMantiqiy fikrlash: ' + sc.log + '\nIshonchlilik: ' + sc.reliability + '\nXulosa: ' + sc.xulosa : '\n(ball hisoblanmadi)');
+  var lines = ['🧑‍💼 Yangi nomzod — ' + (p.vacancy_title || 'vakansiya'), ''];
+  if (sc) {
+    lines.push(sc.xulosa);
+    lines.push('Xarakter testi: ' + sc.umumiy.toFixed(1) + ' / 5');
+    Object.keys(sc.sifatlar).forEach(function (nom) { lines.push(bar_(sc.sifatlar[nom]) + ' ' + nom + ': ' + sc.sifatlar[nom].toFixed(1)); });
+    if (sc.izoh) lines.push('ℹ️ ' + sc.izoh);
+    if (sc.belgilar.length) lines.push('⚠️ ' + sc.belgilar.join('; '));
+  } else {
+    lines.push('(ball hisoblanmadi)');
+  }
+  lines.push('');
+  lines.push('👤 ' + (p.fullname || '—'));
+  lines.push('📞 ' + (p.phone || '—') + (p.telegram ? ' · ' + p.telegram : ''));
+  lines.push('📎 Rezyume: ' + (cvUrl || '—'));
+  lines.push('');
+  lines.push(String((answers && answers.savol) || '—'));
+  var text = lines.join('\n').slice(0, 4000);
   try {
     UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
       method: 'post', contentType: 'application/json',
-      payload: JSON.stringify({ chat_id: chat, text: text }), muteHttpExceptions: true
+      payload: JSON.stringify({ chat_id: chat, text: text, disable_web_page_preview: true }), muteHttpExceptions: true
     });
   } catch (e) {}
 }
