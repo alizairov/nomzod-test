@@ -12,9 +12,13 @@ var NOMZODLAR = 'Nomzodlar';
 var XOM = 'Javoblar_xom';
 var TZ = 'Asia/Tashkent';
 
+// 1-qadamdagi Ha/Yo'q savollar (qisqa nomlari). y7 — ish sharoiti, tajriba hisobiga kirmaydi.
+var YN = [['y1', 'C-level bilan ishlagan'], ['y2', 'Ishga olish/bo\'shatish qarori'], ['y3', 'Rokirovka'],
+  ['y4', "Bo'shatish suhbati"], ['y5', 'HR tizimini noldan qurgan'], ['y6', 'Jamoa boshqargan'], ['y7', "Toshkent, ofis, to'liq stavka"]];
 // Sifat ustunlari (KALIT v3 tartibida). KALIT bo'lmasa ham sarlavhalar o'zgarmaydi.
 var SIFATLAR = ["Qat'iylik", "Rahbarga ta'sir va tashabbus", 'Fidbekka ochiqlik', 'Tizimli fikrlash', 'Moslashuvchanlik', 'Adolat va izchillik'];
-var HEADERS = ['Sana', 'Vakansiya', 'Ism familiya', 'Telefon', 'Telegram', 'Rezyume', 'Ball (100)', 'Xulosa']
+var HEADERS = ['Sana', 'Vakansiya', 'Ism familiya', 'Telefon', 'Telegram', 'Rezyume', 'Ball (100)', 'Xulosa', 'Tajriba (Ha / 6)']
+  .concat(['y1', 'y2', 'y3', 'y4', 'y5', 'y6', 'y7'].map(function (k) { return ynName_(k); }))
   .concat(SIFATLAR)
   .concat(['Belgilar', 'Izoh', 'Bitta savol javobi', 'Vaqt (daq)', 'Holat', "Mas'ul izoh"]);
 var XOM_HEADERS = ['Sana', 'Ism', 'Telefon', 'answers JSON', 'page', 'ua'];
@@ -43,6 +47,8 @@ function doPost(e) {
     ]);
 
     // 2) ball
+    answers.yn = {};
+    YN.forEach(function (q) { var v = String(p[q[0]] || ''); answers.yn[q[0]] = (v === 'ha' || v === 'yoq') ? v : ''; });
     var sc = null;
     try {
       if (typeof KALIT !== 'undefined') sc = score_(answers, KALIT);
@@ -61,6 +67,7 @@ function doPost(e) {
       'Rezyume': cvUrl,
       'Ball (100)': sc ? sc.ball : '',
       'Xulosa': sc ? sc.xulosa : '',
+      'Tajriba (Ha / 6)': tajriba_(answers.yn),
       'Belgilar': sc ? sc.belgilar.join('; ') : '',
       'Izoh': sc ? sc.izoh : '',
       'Bitta savol javobi': clean_(answers.savol, 5000),
@@ -68,6 +75,7 @@ function doPost(e) {
       'Holat': 'Yangi',
       "Mas'ul izoh": ''
     };
+    YN.forEach(function (q) { var v = answers.yn[q[0]]; vals[q[1]] = v === 'ha' ? 'Ha' : v === 'yoq' ? "Yo'q" : ''; });
     if (sc) Object.keys(sc.sifatlar).forEach(function (nom) { vals[nom] = Math.round(sc.sifatlar[nom] * 10) / 10; });
     getSheet_(NOMZODLAR, HEADERS).appendRow(HEADERS.map(function (hd) { return vals[hd] !== undefined ? vals[hd] : ''; }));
 
@@ -111,6 +119,12 @@ function setup() {
   rules.push(scale_(sh.getRange(2, col_('Ball (100)'), last, 1), 0, 50, 100));
   // sifatlar: 1–5
   rules.push(scale_(sh.getRange(2, col_(SIFATLAR[0]), last, SIFATLAR.length), 1, 3, 5));
+  // tajriba: 0–6
+  rules.push(scale_(sh.getRange(2, col_('Tajriba (Ha / 6)'), last, 1), 0, 3, 6));
+  // Ha / Yo'q ustunlari: "Yo'q" — och qizil
+  var ynRange = sh.getRange(2, col_(YN[0][1]), last, YN.length);
+  rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo("Yo'q").setBackground('#F4C7C3').setRanges([ynRange]).build());
+  rules.push(SpreadsheetApp.newConditionalFormatRule().whenTextEqualTo('Ha').setBackground('#D9EAD3').setRanges([ynRange]).build());
   sh.setConditionalFormatRules(rules);
   // holat ro'yxati
   sh.getRange(2, col_('Holat'), last, 1).setDataValidation(
@@ -168,6 +182,13 @@ function score_(answers, kalit) {
   var savol = String(answers.savol || '');
   if (savol.length < kalit.qisqaJavob) belgilar.push('Javob juda qisqa');
 
+  var yn = answers.yn || {};
+  if (yn.y1 === 'yoq') belgilar.push('C-level bilan bevosita ishlamagan');
+  if (yn.y7 === 'yoq') belgilar.push("Toshkentda, ofisda, to'liq stavkada ishlay olmaydi");
+  var taj = tajriba_(yn);
+  var ynBor = Object.keys(yn).some(function (k) { return yn[k]; });
+  if (ynBor && taj < 3) belgilar.push('Tajriba kam (Ha: ' + taj + ' / 6)');
+
   var ideal = vals.length > 0 && vals.every(function (v) { return v === 5; });
   var izoh = ideal ? 'Barcha javoblar ideal — suhbatda misollar bilan tekshiring' : '';
 
@@ -180,6 +201,12 @@ function score_(answers, kalit) {
 }
 
 /* ---------- yordamchilar ---------- */
+function ynName_(k) { for (var i = 0; i < YN.length; i++) if (YN[i][0] === k) return YN[i][1]; return k; }
+function tajriba_(yn) {
+  yn = yn || {}; var n = 0;
+  ['y1', 'y2', 'y3', 'y4', 'y5', 'y6'].forEach(function (k) { if (yn[k] === 'ha') n++; });
+  return n;
+}
 function parseAnswers_(s) {
   try {
     var o = JSON.parse(String(s || '{}'));
@@ -214,6 +241,9 @@ function notifyTelegram_(p, sc, cvUrl, answers) {
   lines.push('👤 ' + (p.fullname || '—'));
   lines.push('📞 ' + (p.phone || '—') + (p.telegram ? ' · ' + p.telegram : ''));
   lines.push('📎 Rezyume: ' + (cvUrl || '—'));
+  var yn = (answers && answers.yn) || {};
+  lines.push('🗂 Tajriba: ' + tajriba_(yn) + ' / 6');
+  YN.forEach(function (q) { lines.push((yn[q[0]] === 'ha' ? '✔️ ' : yn[q[0]] === 'yoq' ? '✖️ ' : '— ') + q[1]); });
   lines.push('');
   lines.push(String((answers && answers.savol) || '—'));
   var text = lines.join('\n').slice(0, 4000);
