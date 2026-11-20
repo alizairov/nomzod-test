@@ -59,12 +59,13 @@ p{margin:0}
 @media(min-width:960px){
   .logo{width:150px}
   .burger{display:none}
-  .nav{position:static;display:flex;flex-direction:row;align-items:center;gap:30px;margin-left:auto;padding:0;border:0;background:none;color:#fff;transition:color .3s}
+  .nav{position:static;display:flex;flex-direction:row;align-items:center;gap:24px;margin-left:auto;padding:0;border:0;background:none;color:#fff;transition:color .3s}
   .header.is-stuck .nav{color:var(--navy)}
-  .nav a:not(.btn){padding:6px 0;border:0;font-size:.97rem}
+  .nav a:not(.btn){padding:6px 0;border:0;font-size:.97rem;white-space:nowrap}
   .nav a:not(.btn):hover{color:#FF8A96}
   .header.is-stuck .nav a:not(.btn):hover{color:var(--red)}
   .nav__cta{display:none}
+  @media(max-width:1200px){.nav{gap:16px}.nav a:not(.btn){font-size:.9rem}.header__in{gap:14px}}
   .header__cta{display:inline-flex}
   .header__cta{margin-left:0}
 }
