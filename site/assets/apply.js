@@ -9,14 +9,14 @@
   if (!form || !T) return;
 
   var VAC = form.getAttribute('data-vacancy') || T.id || 'hr';
-  var KEY = 'nmzd-apply-' + VAC;
+  var KEY = 'nmzd-apply-' + VAC + '-v2';
   var cfg = window.NOMZOD_CONFIG || {};
   var DEMO = /(?:^|[?&])demo=1(?:&|$)/.test(location.search);
   var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  var S = { INTRO: 0, PROFILE: 1, SJT: 2, PAIRS: 3, STMT: 4, OPEN: 5, DONE: 6 };
+  var S = { INTRO: 0, PROFILE: 1, LOGIC: 2, DAILY: 3, VAL: 4, OPEN: 5, DONE: 6 };
   var PARTS = 5;
-  var PART_NAMES = ['', "Ma'lumotlar", 'Vaziyatlar', 'Juftliklar', 'Qisqa savollar', 'Ochiq savollar'];
+  var PART_NAMES = ['', "Ma'lumotlar", 'Mantiqiy fikrlash', 'Kundalik vaziyatlar', "O'zingiz haqingizda", 'Ochiq savollar'];
   var MIN_OPEN = 40;
   var TG = 'https://t.me/ali_zairov';
 
@@ -34,8 +34,8 @@
 
   /* ---------- holat (localStorage) ---------- */
   function newState() {
-    return { v: 1, step: S.INTRO, sit: 0, seed: (Math.random() * 4294967296) >>> 0, startedAt: 0,
-      profile: {}, sjt: {}, ms: {}, order: {}, pairs: {}, stmt: {}, open: {}, consent: false };
+    return { v: 2, step: S.INTRO, q: 0, seed: (Math.random() * 4294967296) >>> 0, startedAt: 0,
+      profile: {}, logic: {}, daily: {}, ms: {}, order: {}, values: [], stmt: {}, open: {}, consent: false };
   }
   var restored = false;
   var state = (function () {
@@ -43,7 +43,7 @@
       var raw = localStorage.getItem(KEY);
       if (raw) {
         var s = JSON.parse(raw);
-        if (s && s.v === 1 && typeof s.step === 'number' && s.step >= 0 && s.step < S.DONE) {
+        if (s && s.v === 2 && typeof s.step === 'number' && s.step >= 0 && s.step < S.DONE) {
           var base = newState();
           Object.keys(base).forEach(function (k) { if (s[k] === undefined || s[k] === null) s[k] = base[k]; });
           restored = s.step > S.INTRO;
@@ -72,16 +72,15 @@
       return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
     };
   }
-  function orderFor(sit) {
-    var ids = sit.options.map(function (o) { return o.id; });
-    var cur = state.order[sit.id];
+  function orderIds(key, ids) {
+    var cur = state.order[key];
     var ok = Array.isArray(cur) && cur.length === ids.length && ids.every(function (id) { return cur.indexOf(id) >= 0; });
     if (!ok) {
-      var r = rng(state.seed ^ hashStr(sit.id)), a = ids.slice();
+      var r = rng(state.seed ^ hashStr(key)), a = ids.slice();
       for (var i = a.length - 1; i > 0; i--) { var j = Math.floor(r() * (i + 1)); var t = a[i]; a[i] = a[j]; a[j] = t; }
-      state.order[sit.id] = a;
+      state.order[key] = a;
     }
-    return state.order[sit.id];
+    return state.order[key];
   }
 
   /* ---------- vaqt hisobi (har bir vaziyat uchun) ---------- */
@@ -95,7 +94,7 @@
   }
   doc.addEventListener('visibilitychange', function () {
     if (doc.hidden) stopTimer();
-    else if (state.step === S.SJT && !finished) startTimer(T.situations[state.sit].id);
+    else if (isItemStep(state.step) && !finished) startTimer(curItem().id);
   });
   window.addEventListener('pagehide', function () { stopTimer(); });
 
@@ -234,105 +233,122 @@
     return first;
   }
 
-  /* ---------- 2-bosqich: vaziyatlar ---------- */
-  var sjtBox = $('wz-sjt');
-  var NS = T.situations.length;
-  function sjtDone(sid) { var a = state.sjt[sid]; return !!(a && a.most && a.least && a.most !== a.least); }
-  function sjtFirstIncomplete() {
-    for (var i = 0; i < NS; i++) if (!sjtDone(T.situations[i].id)) return i;
+  /* ---------- 2–3-bosqich: mantiqiy fikrlash va kundalik vaziyatlar (bittadan) ---------- */
+  var SEC = {};
+  SEC[S.LOGIC] = { key: 'logic', box: $('wz-logic'), label: 'Savol', data: T.logic };
+  SEC[S.DAILY] = { key: 'daily', box: $('wz-daily'), label: 'Vaziyat', data: T.daily };
+  function isItemStep(n) { return n === S.LOGIC || n === S.DAILY; }
+  function curSec() { return SEC[state.step]; }
+  function curItems() { return curSec().data.items; }
+  function curItem() { return curItems()[state.q]; }
+  function itemDone(sec, id) {
+    var a = state[sec.key][id];
+    return !!(a && sec.data.items.some(function (it) {
+      return it.id === id && it.options.some(function (o) { return o.id === a.pick; });
+    }));
+  }
+  function firstIncomplete(sec) {
+    var it = sec.data.items;
+    for (var i = 0; i < it.length; i++) if (!itemDone(sec, it[i].id)) return i;
     return -1;
   }
-  function renderSjt() {
-    var sit = T.situations[state.sit];
-    sjtBox.textContent = '';
-    var order = orderFor(sit);
-    var byId = {}; sit.options.forEach(function (o) { byId[o.id] = o; });
-    var title = h('p', { class: 'sit__text', id: 'sit-text', tabindex: '-1', text: sit.text });
-    var list = h('ul', { class: 'opts', 'aria-labelledby': 'sit-text' });
-    order.forEach(function (oid) {
-      var tid = 'ot-' + sit.id + '-' + oid;
-      var li = h('li', { class: 'opt', 'data-oid': oid }, [
-        h('p', { class: 'opt__t', id: tid, text: byId[oid].text }),
-        h('div', { class: 'opt__btns' }, [
-          h('button', { type: 'button', class: 'opt__b opt__b--most', 'data-kind': 'most', 'aria-pressed': 'false', 'aria-describedby': tid, text: 'Eng ehtimolli' }),
-          h('button', { type: 'button', class: 'opt__b opt__b--least', 'data-kind': 'least', 'aria-pressed': 'false', 'aria-describedby': tid, text: 'Eng kam ehtimolli' })
-        ])
-      ]);
-      list.appendChild(li);
-    });
-    sjtBox.appendChild(h('div', { class: 'sit' }, [
-      h('p', { class: 'sit__n', text: 'Vaziyat ' + (state.sit + 1) + ' / ' + NS }),
-      title
+  function renderItem() {
+    var sec = curSec(), it = curItem(), n = curItems().length, box = sec.box;
+    var byId = {}; it.options.forEach(function (o) { byId[o.id] = o; });
+    var order = orderIds(it.id, it.options.map(function (o) { return o.id; }));
+    var cur = state[sec.key][it.id] && state[sec.key][it.id].pick;
+    box.textContent = '';
+    box.appendChild(h('h3', { class: 'wz__h', text: sec.data.title }));
+    box.appendChild(h('p', { class: 'wz__ins', text: sec.data.intro }));
+    box.appendChild(h('div', { class: 'sit' }, [
+      h('p', { class: 'sit__n', text: sec.label + ' ' + (state.q + 1) + ' / ' + n }),
+      h('p', { class: 'sit__text', id: 'item-text', tabindex: '-1', text: it.text })
     ]));
-    sjtBox.appendChild(h('p', { class: 'wz__ins', text: 'Shu vaziyatda eng ehtimolli qiladigan va eng kam ehtimolli qiladigan harakatingizni tanlang.' }));
-    sjtBox.appendChild(list);
-    sjtBox.appendChild(h('p', { class: 'wz__hint', id: 'sjt-hint', 'aria-live': 'polite' }));
-    paintSjt();
-  }
-  function paintSjt() {
-    var sit = T.situations[state.sit], a = state.sjt[sit.id] || {};
-    Array.prototype.forEach.call(sjtBox.querySelectorAll('.opt'), function (li) {
-      var oid = li.getAttribute('data-oid');
-      var m = a.most === oid, l = a.least === oid;
-      li.classList.toggle('is-most', m); li.classList.toggle('is-least', l);
-      li.querySelector('.opt__b--most').setAttribute('aria-pressed', String(m));
-      li.querySelector('.opt__b--least').setAttribute('aria-pressed', String(l));
+    var grp = h('div', { class: 'ropts', role: 'radiogroup', 'aria-labelledby': 'item-text' });
+    order.forEach(function (oid) {
+      var inp = h('input', { type: 'radio', name: 'pick_' + it.id, value: oid });
+      if (cur === oid) inp.checked = true;
+      grp.appendChild(h('label', { class: 'ropt' }, [inp, h('span', { text: byId[oid].text })]));
     });
-    var hint = $('sjt-hint');
-    if (hint) hint.textContent = !a.most && !a.least ? '' : !a.most ? 'Eng ehtimolli harakatni ham tanlang.' : !a.least ? 'Eng kam ehtimolli harakatni ham tanlang.' : 'Ikkala tanlov belgilandi. Keyingisiga o\'tishingiz mumkin.';
-    updateNav();
+    box.appendChild(grp);
   }
-  sjtBox.addEventListener('click', function (e) {
-    var b = e.target.closest('.opt__b'); if (!b) return;
-    var oid = b.closest('.opt').getAttribute('data-oid'), kind = b.getAttribute('data-kind');
-    var sid = T.situations[state.sit].id;
-    var a = state.sjt[sid] || {};
-    if (a[kind] === oid) delete a[kind];
-    else {
-      a[kind] = oid;
-      var other = kind === 'most' ? 'least' : 'most';
-      if (a[other] === oid) delete a[other];
+  [S.LOGIC, S.DAILY].forEach(function (st) {
+    var sec = SEC[st];
+    sec.box.addEventListener('change', function (e) {
+      var i = e.target; if (!i || i.type !== 'radio') return;
+      var id = curItem().id;
+      state[sec.key][id] = { pick: i.value };
+      save(); updateNav();
+    });
+  });
+  function gotoItem(q, dir) {
+    stopTimer();
+    state.q = q;
+    renderItem(); startTimer(curItem().id);
+    animate(curSec().box); updateProgress(); updateNav(); save(); toTop();
+    $('item-text').focus({ preventScroll: true });
+  }
+
+  /* ---------- 4-bosqich (a): qadriyatlar tartibi ---------- */
+  var valBox = $('wz-values');
+  var NV = T.values.items.length;
+  var vById = {}; T.values.items.forEach(function (v) { vById[v.id] = v; });
+  function cleanValues() {
+    var seen = {};
+    state.values = (state.values || []).filter(function (id) { if (!vById[id] || seen[id]) return false; seen[id] = 1; return true; });
+  }
+  cleanValues();
+  function renderValues(focusVid) {
+    valBox.textContent = '';
+    var ranked = state.values;
+    valBox.appendChild(h('h4', { class: 'vals__h', text: T.values.title }));
+    valBox.appendChild(h('p', { class: 'wz__ins', text: T.values.intro }));
+    valBox.appendChild(h('p', { class: 'vals__lbl', id: 'vals-lbl' }, [
+      'Sizning tartibingiz ', h('span', { class: 'vals__cnt', 'aria-live': 'polite', text: '(' + ranked.length + ' / ' + NV + ')' })
+    ]));
+    var ol = h('ol', { class: 'vals__rank', 'aria-labelledby': 'vals-lbl' });
+    if (!ranked.length) ol.appendChild(h('li', { class: 'vals__empty', text: "Pastdagilardan eng muhimini birinchi bosing" }));
+    ranked.forEach(function (vid, i) {
+      ol.appendChild(h('li', {}, [h('button', {
+        type: 'button', class: 'vchip is-ranked', 'data-vid': vid, 'aria-pressed': 'true',
+        'aria-label': (i + 1) + '-o\'rin: ' + vById[vid].text + '. Olib tashlash uchun bosing (undan keyingilar ham olib tashlanadi)'
+      }, [h('span', { class: 'vchip__n', 'aria-hidden': 'true', text: String(i + 1) }), h('span', { text: vById[vid].text })])]));
+    });
+    valBox.appendChild(ol);
+    var rest = orderIds('values', T.values.items.map(function (v) { return v.id; })).filter(function (id) { return ranked.indexOf(id) < 0; });
+    if (rest.length) {
+      valBox.appendChild(h('p', { class: 'vals__lbl', text: 'Tanlanmaganlar — keyingisini bosing' }));
+      var ul = h('ul', { class: 'vals__pool' });
+      rest.forEach(function (vid) {
+        ul.appendChild(h('li', {}, [h('button', {
+          type: 'button', class: 'vchip', 'data-vid': vid, 'aria-pressed': 'false',
+          'aria-label': vById[vid].text + ". Tanlash — " + (ranked.length + 1) + "-o'rin bo'ladi"
+        }, [h('span', { text: vById[vid].text })])]));
+      });
+      valBox.appendChild(ul);
     }
-    state.sjt[sid] = a;
-    save(); paintSjt();
+    if (ranked.length) valBox.appendChild(h('button', { type: 'button', class: 'linkbtn', id: 'vals-reset', text: 'Qaytadan' }));
+    valBox.appendChild(h('small', { class: 'err', 'data-for': 'values', id: 'err-values' }));
+    if (focusVid) { var b = valBox.querySelector('[data-vid="' + focusVid + '"]'); if (b) b.focus({ preventScroll: true }); }
+  }
+  valBox.addEventListener('click', function (e) {
+    var rs = e.target.closest('#vals-reset');
+    if (rs) { state.values = []; save(); setErr('values', ''); renderValues(); return; }
+    var b = e.target.closest('.vchip'); if (!b) return;
+    var vid = b.getAttribute('data-vid'), i = state.values.indexOf(vid);
+    if (i < 0) state.values.push(vid); else state.values = state.values.slice(0, i);
+    save(); setErr('values', '');
+    renderValues(vid);
   });
-
-  /* ---------- 3-bosqich: juftliklar ---------- */
-  var pairsBox = $('wz-pairs');
-  T.pairs.forEach(function (p, i) {
-    var name = 'pair_' + p.id;
-    var fs = h('fieldset', { class: 'field pair', 'data-pid': p.id }, [
-      h('legend', {}, [h('span', { class: 'pair__n', text: (i + 1) + ' / ' + T.pairs.length }), " Qaysi biri sizga ko'proq xos?"]),
-      h('div', { class: 'pair__opts' }, ['a', 'b'].map(function (k) {
-        return h('label', { class: 'pair__opt' }, [
-          h('input', { type: 'radio', name: name, value: k }),
-          h('span', { text: p[k] })
-        ]);
-      })),
-      h('small', { class: 'err', 'data-for': name })
-    ]);
-    pairsBox.appendChild(fs);
-  });
-  pairsBox.addEventListener('change', function (e) {
-    var i = e.target; if (!i.name || i.name.indexOf('pair_') !== 0) return;
-    state.pairs[i.name.slice(5)] = i.value; save();
-  });
-  T.pairs.forEach(function (p) {
-    var v = state.pairs[p.id];
-    if (v) { var r = pairsBox.querySelector('input[name="pair_' + p.id + '"][value="' + v + '"]'); if (r) r.checked = true; }
-  });
-  function validatePairs() {
-    var first = null;
-    T.pairs.forEach(function (p) {
-      var ok = state.pairs[p.id] === 'a' || state.pairs[p.id] === 'b';
-      setErr('pair_' + p.id, ok ? '' : 'Birini tanlang');
-      if (!ok && !first) first = p.id;
-    });
-    return first;
+  function validateValues() {
+    var ok = state.values.length === NV;
+    setErr('values', ok ? '' : "Hammasini tartibga qo'ying (hozir " + state.values.length + " / " + NV + ')');
+    return ok ? null : 'values';
   }
 
-  /* ---------- 4-bosqich: ha / yo'q ---------- */
+  /* ---------- 4-bosqich (b): ha / yo'q ---------- */
   var stmtBox = $('wz-stmt');
+  renderValues();
   T.statements.forEach(function (s) {
     var name = 'stmt_' + s.id;
     stmtBox.appendChild(h('fieldset', { class: 'field pills stmt' }, [
@@ -408,18 +424,18 @@
     var n = state.step, p = partOf(n);
     progress.hidden = !p;
     if (!p) return;
-    var within = n === S.SJT ? state.sit / NS : 0;
+    var within = isItemStep(n) ? state.q / curItems().length : 0;
     var pct = Math.max(4, Math.round((p - 1 + within) / PARTS * 100));
     bar.style.width = pct + '%';
     progress.setAttribute('aria-valuenow', String(pct));
-    plabel.textContent = 'Qism ' + p + '/' + PARTS + ' — ' + PART_NAMES[p] + (n === S.SJT ? ' · ' + (state.sit + 1) + '/' + NS : '');
+    plabel.textContent = 'Qism ' + p + '/' + PARTS + ' — ' + PART_NAMES[p] + (isItemStep(n) ? ' · ' + (state.q + 1) + '/' + curItems().length : '');
   }
   function updateNav() {
     var n = state.step, show = n >= S.PROFILE && n <= S.OPEN;
     nav.hidden = !show;
     if (!show) return;
     nextT.textContent = n === S.OPEN ? 'Arizani yuborish' : 'Keyingi';
-    next.disabled = (n === S.SJT && !sjtDone(T.situations[state.sit].id)) || submitting;
+    next.disabled = (isItemStep(n) && !itemDone(curSec(), curItem().id)) || submitting;
   }
   function animate(el) {
     if (reduce || !el) return;
@@ -434,22 +450,27 @@
     errBox.hidden = true;
     if (o.manual) note.hidden = true;
     secs.forEach(function (s) { s.hidden = +s.getAttribute('data-step') !== n; });
-    if (n === S.SJT) { renderSjt(); startTimer(T.situations[state.sit].id); }
+    if (isItemStep(n)) {
+      var nn = curItems().length;
+      if (o.q === 'last') state.q = nn - 1; else if (typeof o.q === 'number') state.q = o.q;
+      if (!(state.q >= 0 && state.q < nn)) state.q = 0;
+      renderItem(); startTimer(curItem().id);
+    }
     var sec = form.querySelector('.wz__step[data-step="' + n + '"]');
     animate(sec);
     updateProgress(); updateNav();
     save();
     if (!o.quiet) {
       toTop();
-      var f = n === S.SJT ? $('sit-text') : sec.querySelector('[data-focus]');
+      var f = isItemStep(n) ? $('item-text') : sec.querySelector('[data-focus]');
       if (f) f.focus({ preventScroll: true });
     }
   }
 
   function goBack() {
     var n = state.step;
-    if (n === S.SJT && state.sit > 0) { stopTimer(); state.sit--; renderSjt(); startTimer(T.situations[state.sit].id); animate(sjtBox); updateProgress(); save(); toTop(); $('sit-text').focus({ preventScroll: true }); return; }
-    show(n - 1, { manual: true });
+    if (isItemStep(n) && state.q > 0) { gotoItem(state.q - 1); return; }
+    show(n - 1, { manual: true, q: 'last' });
   }
 
   var submitting = false;
@@ -459,19 +480,15 @@
     if (n === S.PROFILE) {
       readProfile();
       if (validateProfile()) { focusFirstInvalid(); return; }
-      show(S.SJT, { manual: true });
-    } else if (n === S.SJT) {
-      if (!sjtDone(T.situations[state.sit].id)) return;
+      show(S.LOGIC, { manual: true, q: 0 });
+    } else if (isItemStep(n)) {
+      if (!itemDone(curSec(), curItem().id)) return;
       stopTimer();
-      if (state.sit < NS - 1) {
-        state.sit++; renderSjt(); startTimer(T.situations[state.sit].id);
-        animate(sjtBox); updateProgress(); save(); toTop(); $('sit-text').focus({ preventScroll: true });
-      } else show(S.PAIRS, { manual: true });
-    } else if (n === S.PAIRS) {
-      if (validatePairs()) { focusFirstInvalid(); return; }
-      show(S.STMT, { manual: true });
-    } else if (n === S.STMT) {
-      if (validateStmt()) { focusFirstInvalid(); return; }
+      if (state.q < curItems().length - 1) gotoItem(state.q + 1);
+      else show(n === S.LOGIC ? S.DAILY : S.VAL, { manual: true, q: 0 });
+    } else if (n === S.VAL) {
+      var fv = validateValues(), fs = validateStmt();
+      if (fv || fs) { focusFirstInvalid(); return; }
       show(S.OPEN, { manual: true });
     } else if (n === S.OPEN) {
       first = validateOpen();
@@ -506,11 +523,14 @@
     show(S.DONE);
   }
   function buildPayload() {
-    var sjt = {};
-    T.situations.forEach(function (s) {
-      var a = state.sjt[s.id] || {};
-      sjt[s.id] = { most: a.most || '', least: a.least || '', ms: Math.round(state.ms[s.id] || 0) };
-    });
+    function pack(sec) {
+      var o = {};
+      SEC[sec].data.items.forEach(function (it) {
+        var a = state[SEC[sec].key][it.id] || {};
+        o[it.id] = { pick: a.pick || '', ms: Math.round(state.ms[it.id] || 0) };
+      });
+      return o;
+    }
     var open = {};
     T.open.forEach(function (q) { open[q.id] = (state.open[q.id] || '').trim(); });
     var p = new URLSearchParams();
@@ -524,7 +544,7 @@
       p.set(n, v);
     });
     if (cvData) { p.set('cv_name', cvData.name); p.set('cv_mime', cvData.mime); p.set('cv_b64', cvData.b64); }
-    p.set('answers', JSON.stringify({ sjt: sjt, pairs: state.pairs, statements: state.stmt, open: open }));
+    p.set('answers', JSON.stringify({ logic: pack(S.LOGIC), daily: pack(S.DAILY), values: state.values.slice(), statements: state.stmt, open: open }));
     p.set('total_ms', String(state.startedAt ? Math.max(0, Date.now() - state.startedAt) : 0));
     p.set('page', location.href);
     p.set('ua', String(navigator.userAgent || '').slice(0, 200));
@@ -534,10 +554,11 @@
     // hamma bosqichlarni qayta tekshiramiz (masalan, savollar o'zgargan bo'lsa)
     stopTimer(); readProfile();
     if (validateProfile()) { show(S.PROFILE); focusFirstInvalid(); return; }
-    var i = sjtFirstIncomplete();
-    if (i >= 0) { state.sit = i; show(S.SJT); return; }
-    if (validatePairs()) { show(S.PAIRS); focusFirstInvalid(); return; }
-    if (validateStmt()) { show(S.STMT); focusFirstInvalid(); return; }
+    var i = firstIncomplete(SEC[S.LOGIC]);
+    if (i >= 0) { show(S.LOGIC, { q: i }); return; }
+    i = firstIncomplete(SEC[S.DAILY]);
+    if (i >= 0) { show(S.DAILY, { q: i }); return; }
+    if (validateValues() || validateStmt()) { show(S.VAL); focusFirstInvalid(); return; }
     if (validateOpen()) { show(S.OPEN); focusFirstInvalid(); return; }
 
     var hp = form.elements.website;
@@ -560,7 +581,7 @@
 
   /* ---------- ishga tushirish ---------- */
   wireErrIds();
-  if (state.step === S.SJT && state.sit >= NS) state.sit = NS - 1;
+  if (isItemStep(state.step) && !(state.q >= 0 && state.q < curItems().length)) state.q = 0;
   if (restored) note.hidden = false;
   show(state.step, { quiet: true });
 })();

@@ -13,10 +13,10 @@ var XOM = 'Javoblar_xom';
 var TZ = 'Asia/Tashkent';
 
 var HEADERS = ['Sana', 'Vakansiya', 'Ism familiya', 'Telefon', 'Telegram', 'Rezyume',
-  'C-level indeks', 'Fidbekka ochiqlik', 'Moslashuvchanlik', 'Boshqaruvga moyillik', "Qat'iylik", 'Tizimli fikrlash', 'Adolat va etika', 'Insoniylik',
+  'C-level indeks', 'Fidbekka ochiqlik', 'Moslashuvchanlik', 'Boshqaruvga moyillik', "Qat'iylik", 'Tizimli fikrlash', 'Adolat va etika', 'Insoniylik', 'Mantiqiy fikrlash',
   'Samimiylik (0–6)', 'Ishonchlilik', 'Xulosa', 'O1 javob', 'O2 javob', 'O3 javob', 'Vaqt (daq)', 'Holat', "Mas'ul izoh"];
 var XOM_HEADERS = ['Sana', 'Ism', 'Telefon', 'answers JSON', 'page', 'ua'];
-var DIM_ORDER = ['FB', 'MOS', 'BOSH', 'QAT', 'STR', 'ADL', 'EMP']; // 8–14-ustunlar tartibi
+var DIM_ORDER = ['FB', 'MOS', 'BOSH', 'QAT', 'STR', 'ADL', 'EMP']; // 8–14-ustunlar tartibi (15-ustun: mantiqiy fikrlash)
 var CV_FOLDER = 'Nomzod — Rezyumelar';
 var CV_MAX = 5 * 1024 * 1024;
 var HOLATLAR = ['Yangi', "Ko'rilmoqda", 'Suhbat', 'Kompaniya bilan uchrashuv', 'Qabul qilindi', 'Rad etildi'];
@@ -47,6 +47,7 @@ function doPost(e) {
     var open = (answers && answers.open) || {};
     var f = sc ? sc.final : null;
     var scoreCells = DIM_ORDER.map(function (d) { return f && f[d] !== undefined ? f[d] : ''; });
+    scoreCells.push(sc ? sc.log : '');
     var minutes = Math.round((Number(p.total_ms) || 0) / 6000) / 10;
 
     var cvUrl = '';
@@ -98,18 +99,18 @@ function setup() {
   var sh = getSheet_(NOMZODLAR, HEADERS);
   getSheet_(XOM, XOM_HEADERS);
   var last = 1000;
-  // ball ustunlari (7–14): 0–100 rang shkalasi
+  // ball ustunlari (7–15): 0–100 rang shkalasi
   var rules = []; // qayta ishga tushirilsa, qoidalar takrorlanmaydi
-  rules.push(scale_(sh.getRange(2, 7, last, 8), 0, 50, 100));
-  // samimiylik (15): 0–6
-  rules.push(scale_(sh.getRange(2, 15, last, 1), 0, 3, 6));
+  rules.push(scale_(sh.getRange(2, 7, last, 9), 0, 50, 100));
+  // samimiylik (16): 0–6
+  rules.push(scale_(sh.getRange(2, 16, last, 1), 0, 3, 6));
   sh.setConditionalFormatRules(rules);
-  // holat ro'yxati (22-ustun)
-  sh.getRange(2, 22, last, 1).setDataValidation(
+  // holat ro'yxati (23-ustun)
+  sh.getRange(2, 23, last, 1).setDataValidation(
     SpreadsheetApp.newDataValidation().requireValueInList(HOLATLAR, true).setAllowInvalid(true).build());
   sh.setColumnWidths(1, HEADERS.length, 130);
-  sh.setColumnWidth(17, 320);
-  sh.setColumnWidths(18, 3, 360);
+  sh.setColumnWidth(18, 320);
+  sh.setColumnWidths(19, 3, 360);
 }
 
 function scale_(range, min, mid, max) {
@@ -131,84 +132,82 @@ function getSheet_(name, headers) {
   return sh;
 }
 
-/* ---------- ball hisoblash (alohida sinash mumkin) ---------- */
+/* ---------- ball hisoblash (KALIT v2; alohida sinash mumkin) ---------- */
 function score_(answers, kalit) {
   answers = answers || {};
-  var dims = kalit.dims, LF = kalit.LEAST_FACTOR;
-  var sjtAns = answers.sjt || {}, pairAns = answers.pairs || {}, stmtAns = answers.statements || {};
-  var w = function (sid, oid, d) { var o = (kalit.sjt[sid] || {})[oid]; return (o && o[d]) || 0; };
+  var dims = kalit.dims;
+  var stmtAns = answers.statements || {};
 
-  var raw = {}, max = {}, min = {};
-  dims.forEach(function (d) { raw[d] = 0; max[d] = 0; min[d] = 0; });
-
-  Object.keys(kalit.sjt).forEach(function (sid) {
-    var opts = Object.keys(kalit.sjt[sid]);
-    var a = sjtAns[sid] || {};
-    var most = opts.indexOf(a.most) >= 0 ? a.most : null;
-    var least = opts.indexOf(a.least) >= 0 && a.least !== a.most ? a.least : null;
-    dims.forEach(function (d) {
-      if (most) raw[d] += w(sid, most, d);
-      if (least) raw[d] -= LF * w(sid, least, d);
-      var hi = -Infinity, lo = Infinity;
-      opts.forEach(function (m) {
-        opts.forEach(function (l) {
-          if (m === l) return;
-          var v = w(sid, m, d) - LF * w(sid, l, d);
-          if (v > hi) hi = v;
-          if (v < lo) lo = v;
-        });
+  // bo'lim (logic / daily) bo'yicha o'lchovlar foizi
+  function sectionPct(sec) {
+    var ans = answers[sec] || {}, key = kalit[sec] || {};
+    var raw = {}, max = {}, min = {};
+    dims.forEach(function (d) { raw[d] = 0; max[d] = 0; min[d] = 0; });
+    var w = function (opt, d) { return (opt && typeof opt === 'object' && opt[d]) || 0; };
+    Object.keys(key).forEach(function (id) {
+      var opts = key[id], ids = Object.keys(opts);
+      var a = ans[id], pick = a && ids.indexOf(a.pick) >= 0 ? a.pick : null;
+      dims.forEach(function (d) {
+        var hi = -Infinity, lo = Infinity;
+        ids.forEach(function (o) { var v = w(opts[o], d); if (v > hi) hi = v; if (v < lo) lo = v; });
+        if (isFinite(hi)) { max[d] += hi; min[d] += lo; }
+        if (pick) raw[d] += w(opts[pick], d);
       });
-      if (isFinite(hi)) { max[d] += hi; min[d] += lo; }
     });
+    var pct = {};
+    dims.forEach(function (d) {
+      var range = max[d] - min[d];
+      pct[d] = range > 0 ? clamp_((raw[d] - min[d]) / range * 100) : 50;
+    });
+    return pct;
+  }
+  var logicPct = sectionPct('logic'), dailyPct = sectionPct('daily');
+
+  // qadriyatlar tartibi
+  var order = Array.isArray(answers.values) ? answers.values : [];
+  var vKeys = Object.keys(kalit.values || {}), n = vKeys.length;
+  var valuesPct = {};
+  dims.forEach(function (d) { valuesPct[d] = 50; });
+  vKeys.forEach(function (vid) {
+    var d = kalit.values[vid], r = order.indexOf(vid) + 1; // 1-o'rin = 1
+    if (valuesPct[d] === undefined) return;
+    valuesPct[d] = r > 0 && n > 1 ? clamp_((n - r) / (n - 1) * 100) : 50;
   });
 
-  var sjtPct = {};
+  var mix = kalit.mix, fin = {};
   dims.forEach(function (d) {
-    var range = max[d] - min[d];
-    sjtPct[d] = range > 0 ? clamp_((raw[d] - min[d]) / range * 100) : 50;
+    fin[d] = clamp_(Math.round(mix.logic * logicPct[d] + mix.daily * dailyPct[d] + mix.values * valuesPct[d]));
   });
 
-  var count = {}, possible = {};
-  dims.forEach(function (d) { count[d] = 0; possible[d] = 0; });
-  var pairsAnswered = 0;
-  Object.keys(kalit.pairs).forEach(function (pid) {
-    var pr = kalit.pairs[pid];
-    if (possible[pr.a] !== undefined) possible[pr.a]++;
-    if (possible[pr.b] !== undefined) possible[pr.b]++;
-    var c = pairAns[pid];
-    if (c === 'a' || c === 'b') { pairsAnswered++; if (count[pr[c]] !== undefined) count[pr[c]]++; }
+  // mantiqiy fikrlash (LOG) va mantiqsiz javoblar
+  var lAns = answers.logic || {}, lKey = kalit.logic || {}, lIds = Object.keys(lKey);
+  var okCount = 0, illCount = 0;
+  lIds.forEach(function (id) {
+    var a = lAns[id], v = a && lKey[id][a.pick];
+    if (v === undefined) return;
+    if (v === 'ill') illCount++; else okCount++;
   });
-
-  var mix = kalit.mix, fin = {}, pairPct = {};
-  dims.forEach(function (d) {
-    if (possible[d] > 0 && pairsAnswered > 0) {
-      pairPct[d] = count[d] / possible[d] * 100;
-      fin[d] = Math.round(mix.sjt * sjtPct[d] + mix.pairs * pairPct[d]);
-    } else {
-      pairPct[d] = null;
-      fin[d] = Math.round(sjtPct[d]);
-    }
-    fin[d] = clamp_(fin[d]);
-  });
+  var LOG = lIds.length ? clamp_(Math.round(100 * okCount / lIds.length)) : 0;
 
   var cl = 0;
-  dims.forEach(function (d) { cl += (kalit.clevel[d] || 0) * fin[d]; });
+  Object.keys(kalit.clevel).forEach(function (k) { cl += kalit.clevel[k] * (k === 'LOG' ? LOG : (fin[k] || 0)); });
   var clevelIndex = clamp_(Math.round(cl));
 
   var lieCount = 0;
   Object.keys(kalit.lie).forEach(function (id) { if (stmtAns[id] === kalit.lie[id]) lieCount++; });
 
   var times = [];
-  Object.keys(kalit.sjt).forEach(function (sid) {
-    var a = sjtAns[sid];
-    if (a && typeof a.ms === 'number' && isFinite(a.ms)) times.push(a.ms);
+  lIds.forEach(function (id) {
+    var a = lAns[id];
+    if (a && typeof a.ms === 'number' && isFinite(a.ms) && a.ms > 0) times.push(a.ms);
   });
   var medianMs = median_(times);
 
   var reliability = 'Yuqori';
   if (lieCount >= 3) reliability = "Past — o'zini ideal ko'rsatishga moyil";
   else if (lieCount === 2) reliability = "O'rta";
-  if (medianMs !== null && medianMs < 8000) reliability += ' · juda tez javob bergan';
+  if (illCount >= 4) reliability += " · ko'p mantiqsiz javob — e'tiborsiz to'ldirgan bo'lishi mumkin";
+  if (medianMs !== null && medianMs < 7000) reliability += ' · juda tez javob bergan';
 
   var notes = [];
   if (fin.QAT >= 65 && fin.EMP < 40) notes.push("Qat'iy, lekin insoniy tomoni zaifroq");
@@ -217,13 +216,14 @@ function score_(answers, kalit) {
   if (fin.ADL < 40) notes.push("Etika/maxfiylik bo'yicha xavf — suhbatda tekshiring");
   if (fin.BOSH < 35) notes.push('Tashabbus kam');
   if (fin.STR >= 70) notes.push('Tizimli fikrlaydi');
+  if (LOG < 50) notes.push('Mantiqiy xulosa chiqarishda zaif');
   if (clevelIndex >= 65) notes.push('C-level bilan ishlashga kuchli nomzod');
   else if (clevelIndex >= 52) notes.push("O'rta — suhbatda chuqurroq tekshiring");
   else notes.push('C-level rol uchun zaifroq');
 
   return {
-    final: fin, clevelIndex: clevelIndex, lieCount: lieCount, reliability: reliability,
-    xulosa: notes.join('; '), sjtPct: sjtPct, pairPct: pairPct, medianMs: medianMs
+    final: fin, log: LOG, clevelIndex: clevelIndex, lieCount: lieCount, illCount: illCount, reliability: reliability,
+    xulosa: notes.join('; '), logicPct: logicPct, dailyPct: dailyPct, valuesPct: valuesPct, medianMs: medianMs
   };
 }
 
@@ -256,7 +256,7 @@ function notifyTelegram_(p, sc, cvUrl) {
   var text = 'Yangi ariza — ' + (p.vacancy_title || 'vakansiya') + '\n\n' +
     'Ism: ' + (p.fullname || '—') + '\nTelefon: ' + (p.phone || '—') +
     '\nTelegram: ' + (p.telegram || '—') + '\nRezyume: ' + (cvUrl || '—') +
-    (sc ? '\nC-level indeks: ' + sc.clevelIndex + '\nIshonchlilik: ' + sc.reliability + '\nXulosa: ' + sc.xulosa : '\n(ball hisoblanmadi)');
+    (sc ? '\nC-level indeks: ' + sc.clevelIndex + '\nMantiqiy fikrlash: ' + sc.log + '\nIshonchlilik: ' + sc.reliability + '\nXulosa: ' + sc.xulosa : '\n(ball hisoblanmadi)');
   try {
     UrlFetchApp.fetch('https://api.telegram.org/bot' + token + '/sendMessage', {
       method: 'post', contentType: 'application/json',

@@ -25,7 +25,7 @@
 <link rel="preload" href="../../assets/fonts/AeonikPro-Regular.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="../../assets/fonts/AeonikPro-Bold.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="../../assets/style.css?v=10">
-<link rel="stylesheet" href="../../assets/vacancy.css?v=2">
+<link rel="stylesheet" href="../../assets/vacancy.css?v=3">
 </head>
 <body>
 <a class="skip" href="#asosiy">Asosiy mazmunga o'tish</a>
@@ -105,7 +105,7 @@
       <article class="card reveal">
         <h3>Ariza qanday ko'rib chiqiladi</h3>
         <ol class="vsteps">
-          <li>Ariza va test (25–30 daqiqa)</li>
+          <li>Ariza va test (20–25 daqiqa)</li>
           <li>Natijalarni o'zimiz ko'rib chiqamiz</li>
           <li>Suhbat</li>
           <li>Kompaniya bilan uchrashuv</li>
@@ -134,7 +134,7 @@
 
         <section class="wz__step" data-step="0">
           <h3 class="wz__h" data-focus tabindex="-1">Ariza haqida</h3>
-          <p class="wz__ins">Ariza 5 qismdan iborat: bog'lanish ma'lumotlari va rezyume, 16 ta vaziyat, o'zingiz haqingizda qisqa savollar va 3 ta ochiq savol. Taxminan 25–30 daqiqa vaqt oladi. To'g'ri yoki noto'g'ri javob yo'q — o'zingiz haqiqatda qanday yo'l tutishingizni tanlang. Javoblaringiz shu qurilmada saqlanib boradi, sahifani yopsangiz ham davom ettirishingiz mumkin.</p>
+          <p class="wz__ins">Ariza 5 qismdan iborat: bog'lanish ma'lumotlari va rezyume, mantiqiy fikrlash, kundalik vaziyatlar, o'zingiz haqingizda qisqa savollar va 3 ta ochiq savol. Taxminan 20–25 daqiqa vaqt oladi. Javoblaringiz shu qurilmada saqlanib boradi, sahifani yopsangiz ham davom ettirishingiz mumkin.</p>
           <button type="button" class="btn btn--red btn--lg" id="wz-start">Boshlash</button>
         </section>
 
@@ -171,17 +171,17 @@
         </section>
 
         <section class="wz__step" data-step="2" hidden>
-          <div id="wz-sjt"></div>
+          <div id="wz-logic"></div>
         </section>
 
         <section class="wz__step" data-step="3" hidden>
-          <h3 class="wz__h" data-focus tabindex="-1">O'zingiz haqingizda</h3>
-          <p class="wz__ins">Har bir juftlikdan o'zingizga ko'proq mos keladigan jumlani tanlang. Ikkalasi ham yaxshi — faqat sizga qaysi biri yaqinroq ekanini belgilang.</p>
-          <div id="wz-pairs"></div>
+          <div id="wz-daily"></div>
         </section>
 
         <section class="wz__step" data-step="4" hidden>
           <h3 class="wz__h" data-focus tabindex="-1">O'zingiz haqingizda</h3>
+          <div class="field vals" id="wz-values"></div>
+          <h4 class="vals__h vals__h--2">Qisqa savollar</h4>
           <p class="wz__ins">O'zingizni ideal ko'rsatishga harakat qilmang — samimiy javoblar sizga mos ishni topishga yordam beradi.</p>
           <div id="wz-stmt"></div>
         </section>
@@ -234,8 +234,8 @@
 </footer>
 
 <script src="../../assets/config.js?v=10" defer></script>
-<script src="../../assets/tests/hr.js?v=1" defer></script>
-<script src="../../assets/apply.js?v=2" defer></script>
+<script src="../../assets/tests/hr.js?v=2" defer></script>
+<script src="../../assets/apply.js?v=3" defer></script>
 <script src="../../assets/main.js?v=10" defer></script>
 <script src="../../assets/alphabet.js?v=9" defer></script>
 </body>
