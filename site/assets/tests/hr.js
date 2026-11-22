@@ -6,6 +6,17 @@ window.VACANCY_TEST = {
   id: "hr",
   title: "HR mutaxassis",
 
+  /* 1-qadam: qisqa Ha/Yo'q savollar. */
+  yn: [
+    { id: "y1", text: "Kompaniya rahbari (CEO) yoki top-menejerlar bilan bevosita ishlaganmisiz?" },
+    { id: "y2", text: "Xodimni ishga olish yoki ishdan bo'shatish bo'yicha yakuniy qaror qabul qilganmisiz yoki qarorga bevosita ta'sir qilganmisiz?" },
+    { id: "y3", text: "Xodimni boshqa lavozimga o'tkazish (rokirovka) jarayonini olib borganmisiz?" },
+    { id: "y4", text: "Ishdan bo'shatish haqidagi suhbatni o'zingiz o'tkazganmisiz?" },
+    { id: "y5", text: "Kompaniyada HR tizimini (nizom, baholash, motivatsiya va h.k.) noldan qurganmisiz?" },
+    { id: "y6", text: "Kamida 3 kishilik jamoani boshqarganmisiz?" },
+    { id: "y7", text: "Toshkentda, ofisda, to'liq stavkada ishlay olasizmi?" }
+  ],
+
   /* 2-qadam: xarakter testi. Har bir gap 1–5 shkalada baholanadi. */
   test: {
     title: "Xarakter testi",
@@ -33,6 +44,7 @@ window.VACANCY_TEST = {
   question: {
     title: "Bitta savol",
     text: "Rahbariyat siz qo'shilmaydigan kadrlar qarorini qabul qilgan holatni eslang (bo'lmagan bo'lsa — tasavvur qiling). Qanday yo'l tutdingiz va nima uchun?",
-    hint: "3–5 jumlada, o'z so'zlaringiz bilan yozing."
+    hint: "3–5 jumlada, o'z so'zlaringiz bilan yozing.",
+    minSentences: 3
   }
 };

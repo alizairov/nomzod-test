@@ -26,28 +26,30 @@ Bir sahifali statik sayt (HTML/CSS/JS, build kerak emas).
 4. Aloqa: Telegram — https://t.me/ali_zairov, Instagram — https://www.instagram.com/nomzod.agency (index.html footer qismida).
 
 ## Vakansiyalar va ariza
+Hozir ikkita vakansiya bor: "HR mutaxassis" (`hr`) va "Sotuv menejeri" (`sotuv`).
+
 Fayllar:
 - `vakansiyalar/index.html` — ochiq vakansiyalar ro'yxati (ulashish uchun havola: `/vakansiyalar/`)
-- Rezyume fayli (PDF/Word/rasm, 5 MB gacha) Google Drive'dagi `Nomzod — Rezyumelar` papkasiga saqlanadi, havolasi jadvalda. Birinchi deploy'da Drive ruxsatini tasdiqlang.
-- `vakansiyalar/hr/index.html` — "HR mutaxassis" vakansiyasi va 3 qadamli anketa (Tanishuv / Xarakter testi / Bitta savol, taxminan 5–7 daqiqa; Turon Montessori anketasi formatida)
-- `assets/apply.js` — umumiy ariza mexanizmi (savollarni `window.VACANCY_TEST` dan va vakansiya turini formadagi `data-vacancy` dan oladi)
-- `assets/tests/hr.js` — HR vakansiyasi savollari (faqat matn, baholash kaliti YO'Q)
+- `vakansiyalar/hr/index.html`, `vakansiyalar/sotuv/index.html` — vakansiya tavsifi va 3 qadamli anketa (Tanishuv / Xarakter testi / Bitta savol, taxminan 5–7 daqiqa; Turon Montessori anketasi formatida)
+- `assets/apply.js` — umumiy ariza mexanizmi: savollarni `window.VACANCY_TEST` dan, vakansiya turini formadagi `data-vacancy` dan, rezyume majburiyligini `data-cv-required` dan oladi. Qisqa Ha/Yo'q savollar (`yn`), ixtiyoriy yo'nalish kartalari (`types`, `yn` elementidagi `for` — faqat shu yo'nalish tanlanganda ko'rinadi) va bitta savolning jumla minimumi (`question.minSentences`) testlar faylidan keladi
+- `assets/tests/hr.js`, `assets/tests/sotuv.js` — savollar (faqat matn, baholash kaliti YO'Q)
 - `assets/vacancy.css` — vakansiya sahifalari va forma uslubi
-- `apps-script/Vakansiya.gs` — arizalarni jadvalga yozadi va ball hisoblaydi (Turon `testBaho` mantiqi; kalit repoda yo'q)
+- `apps-script/Vakansiya.gs` — arizalarni jadvalga yozadi va ball hisoblaydi (Turon `testBaho` mantiqi; kalit repoda yo'q). Har vakansiya o'z varag'iga yoziladi (`HR`, `Sotuv`); `Javoblar_xom` varag'i umumiy
+- Rezyume fayli (PDF/Word/rasm, 5 MB gacha) Google Drive'dagi `Nomzod — Rezyumelar` papkasiga saqlanadi, havolasi jadvalda. Birinchi deploy'da Drive ruxsatini tasdiqlang. Sotuv uchun rezyume majburiy emas (bo'lmasa jadvalda "—").
 
 Ulash:
 1. Yangi Google Sheet oching: Extensions > Apps Script.
-2. Ikkita fayl yarating: `Vakansiya.gs` (repodagi `apps-script/Vakansiya.gs` mazmuni) va `Kalit.gs` (KALIT v3; Ali shaxsan beradi, **repoga qo'yilmaydi**). `Kalit.gs` bo'lmasa, javoblar xom holda saqlanadi, ball ustunlari bo'sh qoladi.
-3. `setup` funksiyasini bir marta ishga tushiring (varaqlar, rang shkalasi va "Holat" ro'yxati yaratiladi; ruxsat so'raladi).
+2. Ikkita fayl yarating: `Vakansiya.gs` (repodagi `apps-script/Vakansiya.gs` mazmuni) va `Kalit.gs` (KALIT v4: `{hr: {...}, sotuv: {...}}`; Ali shaxsan beradi, **repoga qo'yilmaydi**). `Kalit.gs` yoki vakansiya kaliti bo'lmasa, javoblar xom holda saqlanadi, ball ustunlari bo'sh qoladi.
+3. `setup` funksiyasini bir marta ishga tushiring (barcha vakansiya varaqlari, rang shkalasi va "Holat" ro'yxati yaratiladi; ruxsat so'raladi). Eski `Nomzodlar` varag'i (agar bo'lsa) o'zgarmaydi — yangi arizalar `HR` varag'iga tushadi.
 4. (Ixtiyoriy) Project Settings > Script Properties: `TELEGRAM_TOKEN`, `CHAT_ID`.
 5. Deploy > New deployment > Web app. Execute as: Me; Who has access: **Anyone**.
 6. Olingan URL ni `assets/config.js` dagi `vacancyEndpoint` ga yozing. Kod yoki kalit o'zgarsa, qayta deploy qiling (New version).
 
 `vacancyEndpoint` bo'sh bo'lsa, ariza yuborilmaydi: nomzodga "tizim sozlanmoqda" xabari ko'rsatiladi, javoblari esa brauzerda saqlanib qoladi. Sinash uchun sahifaga `?demo=1` qo'shing: tarmoqqa hech narsa yuborilmaydi, ma'lumotlar konsolga chiqadi va muvaffaqiyat ekrani ko'rsatiladi.
 
-Yangi vakansiya qo'shish:
-1. `vakansiyalar/hr/` papkasini nusxalang (masalan, `vakansiyalar/sotuv/`), sarlavha, tavsif va `data-vacancy="sotuv"` ni o'zgartiring.
-2. `assets/tests/sotuv.js` yarating (`hr.js` tuzilmasi: `id`, `title`, `test` (`note`, `scale`, `lo`, `hi`, `items`), `question`) va sahifada `hr.js` o'rniga shuni ulang.
+Uchinchi vakansiya qo'shish (`<id>` — masalan `buxgalter`):
+1. `assets/tests/<id>.js` yarating (`sotuv.js` tuzilmasi: `id`, `title`, `yn`, ixtiyoriy `types`, `test`, `question`).
+2. `vakansiyalar/sotuv/` papkasini `vakansiyalar/<id>/` ga nusxalang: sarlavha, tavsif, `data-vacancy="<id>"`, `data-cv-required` va test faylini o'zgartiring.
 3. Ro'yxat sahifasiga (`vakansiyalar/index.html`) yangi `.card` qo'shing.
-4. Baholash uchun alohida kalit va Apps Script kerak bo'ladi (`Vakansiya.gs` hozir HR anketasi tuzilmasiga moslangan).
-
+4. `apps-script/Vakansiya.gs` dagi `VAKANSIYALAR` ga `<id>` yozuvini qo'shing (varaq nomi, sifat ustunlari, `yn` ro'yxati, `tajriba` va `flags` funksiyalari).
+5. `Kalit.gs` dagi `KALIT` ga shu `<id>` bilan kalit qo'shing (repoga emas, Apps Script loyihasiga).

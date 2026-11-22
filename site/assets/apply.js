@@ -17,7 +17,8 @@
   var S = { INTRO: 0, PROFILE: 1, TEST: 2, SAVOL: 3, DONE: 4 };
   var PARTS = 3;
   var PART_NAMES = ['', 'Tanishuv', 'Xarakter testi', 'Bitta savol'];
-  var MIN_SENT = 3, MIN_CHARS = 80;
+  var MIN_SENT = Math.max(1, Number(T.question && T.question.minSentences) || 3), MIN_CHARS = 25 * MIN_SENT + 5;
+  var CV_REQ = form.getAttribute('data-cv-required') === 'true';
   var TG = 'https://t.me/ali_zairov';
 
   function $(id) { return doc.getElementById(id); }
@@ -98,6 +99,51 @@
 
   /* ---------- 1-bosqich: ma'lumotlar ---------- */
   var profSec = form.querySelector('.wz__step[data-step="1"]');
+
+  /* yo'nalish (types) va qisqa Ha/Yo'q savollar: T dan chiziladi */
+  var ynHost = $('a-yn');
+  var YNQ = T.yn || [];
+  function renderYn() {
+    if (!ynHost) return;
+    ynHost.textContent = '';
+    if (T.types && T.types.items && T.types.items.length) {
+      var cards = h('div', { class: 'types' });
+      T.types.items.forEach(function (it) {
+        cards.appendChild(h('label', { class: 'typecard' }, [
+          h('input', { type: 'checkbox', name: 'types', value: it.id }),
+          h('span', { class: 'typecard__b' }, [
+            h('span', { class: 'typecard__t', text: it.title }),
+            it.sub ? h('span', { class: 'typecard__s', text: it.sub }) : null
+          ])
+        ]));
+      });
+      ynHost.appendChild(h('fieldset', { class: 'field typebox', 'data-req': '' }, [
+        h('legend', {}, [T.types.label + ' ', h('span', { class: 'req', 'aria-hidden': 'true', text: '*' })]),
+        T.types.hint ? h('small', { class: 'hint', text: T.types.hint }) : null,
+        cards,
+        h('small', { class: 'err', 'data-for': 'types' })
+      ]));
+    }
+    if (YNQ.length) {
+      var box = h('div', { class: 'ynbox' }, [
+        h('p', { class: 'ynbox__t' }, ['Qisqa savollar ', h('span', { class: 'req', 'aria-hidden': 'true', text: '*' })])
+      ]);
+      YNQ.forEach(function (q) {
+        var attrs = { class: 'field yn pills', 'data-req': '', 'data-yn': q.id };
+        if (q.for) attrs['data-for-type'] = q.for;
+        box.appendChild(h('fieldset', attrs, [
+          h('legend', { text: q.text }),
+          h('label', {}, [h('input', { type: 'radio', name: q.id, value: 'ha' }), h('span', { text: 'Ha' })]),
+          h('label', {}, [h('input', { type: 'radio', name: q.id, value: 'yoq' }), h('span', { text: "Yo'q" })]),
+          h('small', { class: 'err', 'data-for': q.id })
+        ]));
+      });
+      ynHost.appendChild(box);
+    }
+  }
+  renderYn();
+  var cvWrap = profSec.querySelector('.cvfield');
+  if (cvWrap && !CV_REQ) cvWrap.removeAttribute('data-req');
   var phone = $('a-phone');
   function formatPhone(raw) {
     var d = raw.replace(/\D/g, '');
@@ -167,6 +213,18 @@
   profSec.addEventListener('input', function () { readProfile(); save(); });
   profSec.addEventListener('change', function () { readProfile(); save(); });
   profNames.forEach(function (n) { if (n in state.profile) setVal(n, state.profile[n]); });
+  function chosenTypes() { var v = getVal('types'); return Array.isArray(v) ? v : []; }
+  function ynActive(q) { return !q.for || chosenTypes().indexOf(q.for) >= 0; }
+  function applyTypes() {
+    if (!ynHost) return;
+    YNQ.forEach(function (q) {
+      if (!q.for) return;
+      var fs = ynHost.querySelector('fieldset[data-yn="' + q.id + '"]');
+      if (fs) fs.hidden = !ynActive(q);
+    });
+  }
+  profSec.addEventListener('change', function (e) { if (e.target && e.target.name === 'types') applyTypes(); });
+  applyTypes();
   paintCv();
   phone.value = formatPhone(phone.value || '');
 
@@ -175,11 +233,13 @@
     function bad(name, msg) { setErr(name, msg); if (msg && !first) first = name; }
     Array.prototype.forEach.call(profSec.querySelectorAll('.field'), function (f) {
       var er = f.querySelector('.err[data-for]'); if (!er) return;
+      if (f.hidden || f.closest('[hidden]')) { setErr(er.getAttribute('data-for'), ''); return; }
       var name = er.getAttribute('data-for'), v = name === 'cv' ? (cvData ? cvData.name : '') : getVal(name);
-      var req = f.hasAttribute('data-req');
+      var req = f.hasAttribute('data-req') && (name !== 'cv' || CV_REQ);
       var empty = Array.isArray(v) ? !v.length : !String(v).trim();
       var msg = '';
       if (req && empty) msg = name === 'cv' ? (state.profile.cv_name ? 'Sahifa qayta ochilgani uchun rezyumeni qayta yuklang' : 'Rezyumeingizni yuklang')
+        : name === 'types' ? 'Kamida bittasini tanlang'
         : (f.tagName === 'FIELDSET') ? 'Variantlardan birini tanlang' : "Maydonni to'ldiring";
       if (!msg && !empty) {
         v = String(v).trim();
@@ -270,7 +330,7 @@
   function validateSavol() {
     var v = ta.value.trim(), first = null;
     var short = sentences(v) < MIN_SENT || v.length < MIN_CHARS;
-    setErr('savol', short ? 'Javobingizni biroz kengroq yozing (kamida 3 jumla).' : '');
+    setErr('savol', short ? 'Javobingizni biroz kengroq yozing (kamida ' + MIN_SENT + ' jumla).' : '');
     if (short) first = 'savol';
     setErr('consent', consent.checked ? '' : 'Davom etish uchun rozilik bering');
     if (!consent.checked && !first) first = 'consent';
@@ -386,7 +446,9 @@
     profNames.forEach(function (n) {
       if (n === 'website') return;
       var v = getVal(n);
-      if (Array.isArray(v)) v = v.join(', ');
+      var hid = YNQ.filter(function (q) { return q.id === n && !ynActive(q); }).length;
+      if (hid) v = '';
+      if (Array.isArray(v)) v = v.join(n === 'types' ? ',' : ', ');
       v = String(v).trim();
       p.set(n, v);
     });
