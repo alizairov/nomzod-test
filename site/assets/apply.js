@@ -174,6 +174,11 @@
     if (!file) return;
     if (!CV_EXT.test(file.name)) { cvData = null; paintCv(); setErr('cv', 'Faqat PDF, Word yoki rasm (JPG, PNG) fayl yuklang'); return; }
     if (file.size > CV_MAX) { cvData = null; paintCv(); setErr('cv', 'Fayl hajmi 5 MB dan oshmasin'); return; }
+    if (cfg.apiBase) { // Worker: haqiqiy faylni FormData bilan yuboramiz (base64 kerak emas)
+      cvData = { name: file.name, mime: file.type || 'application/octet-stream', file: file };
+      state.profile.cv_name = file.name; save(); setErr('cv', ''); paintCv();
+      return;
+    }
     var r = new FileReader();
     r.onload = function () {
       var url = String(r.result || '');
@@ -459,6 +464,17 @@
     p.set('ua', String(navigator.userAgent || '').slice(0, 200));
     return p;
   }
+  // Cloudflare Worker (kabinet): multipart/form-data, oddiy CORS so'rovi, javob JSON {ok}
+  function submitApi(payload) {
+    submitting = true; next.disabled = true; next.classList.add('is-loading');
+    var fd = new FormData();
+    payload.forEach(function (v, k) { if (k.indexOf('cv_') !== 0) fd.append(k, v); });
+    if (cvData && cvData.file) fd.append('cv', cvData.file, cvData.name);
+    fetch(String(cfg.apiBase).replace(/\/+$/, '') + '/api/apply', { method: 'POST', body: fd })
+      .then(function (r) { return r.json().catch(function () { return {}; }); })
+      .then(function (j) { if (j && j.ok) finish(); else showErr('net'); })
+      .catch(function () { showErr('net'); });
+  }
   function submit() {
     // hamma qadamlarni qayta tekshiramiz
     readProfile();
@@ -478,6 +494,7 @@
       try { console.log('[demo] answers:', JSON.parse(o.answers)); } catch (e) {}
       finish(); return;
     }
+    if (cfg.apiBase) { submitApi(payload); return; }
     if (!cfg.vacancyEndpoint) { showErr('config'); return; }
     submitting = true; next.disabled = true; next.classList.add('is-loading');
     fetch(cfg.vacancyEndpoint, { method: 'POST', mode: 'no-cors', body: payload })

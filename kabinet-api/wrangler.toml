@@ -1,0 +1,17 @@
+name = "nomzod-kabinet"
+main = "src/index.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[[d1_databases]]
+binding = "DB"
+database_name = "nomzod-kabinet"
+database_id = "8198598e-5975-4072-842b-2e8fc07c6678"
+
+[[kv_namespaces]]
+binding = "CV"
+id = "fb144873647a4f4389ac167272591267"
+
+# Maxfiy qiymatlar (ADMIN_PASSWORD, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID) bu yerga YOZILMAYDI —
+# ular Cloudflare dashboard'da "Variables and Secrets" orqali qo'shiladi.
+# Ixtiyoriy oddiy o'zgaruvchi: KABINET_URL (kabinet sahifasi manzili) — Telegram xabariga havola qo'shadi.
