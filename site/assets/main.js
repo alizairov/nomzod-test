@@ -3,26 +3,70 @@
   var doc = document;
   doc.documentElement.classList.add('js');
 
-  /* sticky header shadow */
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* header: shaffof -> xira/qattiq */
   var header = doc.getElementById('header');
   function onScroll() { header.classList.toggle('is-stuck', window.scrollY > 8); }
   window.addEventListener('scroll', onScroll, { passive: true }); onScroll();
 
-  /* burger */
+  /* burger / to'liq ekranli menyu */
   var burger = doc.getElementById('burger'), nav = doc.getElementById('nav');
-  function setMenu(open) {
+  var desk = window.matchMedia('(min-width: 1000px)');
+  function setMenu(open, noFocus) {
+    var was = nav.classList.contains('open');
     header.classList.toggle('menu-open', open);
     nav.classList.toggle('open', open);
+    doc.body.classList.toggle('nav-lock', open);
     burger.setAttribute('aria-expanded', open);
     burger.setAttribute('aria-label', open ? 'Menyuni yopish' : 'Menyuni ochish');
+    if (open && !was) { var first = nav.querySelector('a'); if (first) first.focus({ preventScroll: true }); }
+    if (!open && was && !noFocus) burger.focus({ preventScroll: true });
   }
   burger.addEventListener('click', function () { setMenu(!nav.classList.contains('open')); });
-  nav.addEventListener('click', function (e) { if (e.target.closest('a')) setMenu(false); });
-  doc.addEventListener('keydown', function (e) { if (e.key === 'Escape') setMenu(false); });
+  nav.addEventListener('click', function (e) { if (e.target.closest('a')) setMenu(false, true); });
+  doc.addEventListener('keydown', function (e) {
+    var open = nav.classList.contains('open');
+    if (e.key === 'Escape' && open) { setMenu(false); return; }
+    if (e.key === 'Tab' && open) {
+      var f = Array.prototype.filter.call(header.querySelectorAll('a[href],button'), function (el) { return el.offsetParent !== null; });
+      if (!f.length) return;
+      var i = f.indexOf(doc.activeElement);
+      if (e.shiftKey && i <= 0) { e.preventDefault(); f[f.length - 1].focus(); }
+      else if (!e.shiftKey && (i === f.length - 1 || i < 0)) { e.preventDefault(); f[0].focus(); }
+    }
+  });
+  (desk.addEventListener ? desk.addEventListener.bind(desk, 'change') : desk.addListener.bind(desk))(function (e) { if (e.matches) setMenu(false, true); });
+
+  /* mobil pastki CTA: hero o'tgach chiqadi, aloqa bo'limida yashirinadi */
+  var mcta = doc.getElementById('mcta'), hero = doc.querySelector('.hero'), contact = doc.getElementById('ariza');
+  if (mcta && hero && 'IntersectionObserver' in window) {
+    var heroOut = false, contactIn = false;
+    var upd = function () { mcta.classList.toggle('is-on', heroOut && !contactIn); };
+    new IntersectionObserver(function (en) { heroOut = !en[0].isIntersecting; upd(); }).observe(hero);
+    if (contact) new IntersectionObserver(function (en) { contactIn = en[0].isIntersecting; upd(); }, { threshold: 0.25 }).observe(contact);
+  }
+
+  /* jarayon: skroll bilan to'ladigan chiziq */
+  var steps = doc.querySelector('.steps');
+  if (steps && !reduce) {
+    var lis = steps.querySelectorAll('li'), ticking = false;
+    steps.classList.add('tl-js');
+    var tl = function () {
+      ticking = false;
+      var r = steps.getBoundingClientRect(), vh = window.innerHeight;
+      var horiz = window.matchMedia('(min-width: 1080px)').matches;
+      var p = horiz ? (vh * 0.9 - r.top) / (vh * 0.45) : (vh * 0.65 - r.top) / r.height;
+      p = Math.max(0, Math.min(1, p));
+      steps.style.setProperty('--p', p.toFixed(3));
+      lis.forEach(function (li, i) { li.classList.toggle('is-on', p >= (i + 0.2) / lis.length || (i === 0 && p > 0)); });
+    };
+    var req = function () { if (!ticking) { ticking = true; requestAnimationFrame(tl); } };
+    window.addEventListener('scroll', req, { passive: true }); window.addEventListener('resize', req); tl();
+  }
 
   /* reveal on scroll */
   var items = doc.querySelectorAll('.reveal');
-  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (reduce || !('IntersectionObserver' in window)) {
     items.forEach(function (el) { el.classList.add('in'); });
   } else {
