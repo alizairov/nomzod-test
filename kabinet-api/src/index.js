@@ -304,7 +304,7 @@ async function handleLogin(request, env) {
 }
 
 /* ---------- leadlar ---------- */
-const LIST_COLS = "id, created_at, vacancy, vacancy_title, fullname, phone, telegram, types, ball, xulosa, status, position, rating, client, archived, (cv_key IS NOT NULL AND cv_key != '') AS has_cv, COALESCE(json_array_length(json_extract(scores, '$.belgilar')), 0) AS belgilar";
+const LIST_COLS = "id, created_at, vacancy, vacancy_title, fullname, phone, telegram, types, ball, xulosa, status, position, rating, client, archived, (cv_key IS NOT NULL AND cv_key != '') AS has_cv, COALESCE(json_array_length(json_extract(scores, '$.belgilar')), 0) AS belgilar, json_extract(screening, '$.score') AS scr_score, json_extract(screening, '$.verdict') AS scr_verdict";
 const escLike = (s) => s.replace(/[\\%_]/g, (c) => '\\' + c);
 const fixRow = (r) => Object.assign(r, { has_cv: !!r.has_cv });
 
@@ -328,11 +328,71 @@ async function getLead(request, env, id) {
   if (!r) return fail(request, 404, 'Topilmadi');
   const ev = await env.DB.prepare('SELECT id, at, type, text, from_status, to_status FROM events WHERE lead_id = ? ORDER BY at DESC, id DESC').bind(id).all();
   const lead = Object.assign({}, r, {
-    has_cv: !!r.cv_key, yn: safeParse(r.yn, {}), answers: safeParse(r.answers, {}), scores: safeParse(r.scores, null), events: ev.results || [],
+    has_cv: !!r.cv_key, yn: safeParse(r.yn, {}), answers: safeParse(r.answers, {}), scores: safeParse(r.scores, null), screening: safeParse(r.screening, null), events: ev.results || [],
   });
   delete lead.cv_key; delete lead.ua;
   return reply(request, { ok: true, lead });
 }
+
+/* ---------- saralash suhbati (screening) ---------- */
+const SCR_MAX_BYTES = 30 * 1024;
+const SCR_TEXT_MAX = 3000;
+const SCR_VERDICTS = { otdi: 'Keyingi bosqichga', zaxira: 'Zaxiraga', rad: 'Rad etish' };
+const SCR_ID = /^[A-Za-z0-9_-]{1,40}$/;
+const isPlain = (o) => o !== null && typeof o === 'object' && !Array.isArray(o);
+/** Kiruvchi screening obyektini tekshiradi. { error } yoki { value } (score hisoblangan) qaytaradi. */
+function validateScreening(s, serverNow) {
+  if (!isPlain(s)) return { error: "Saralash ma'lumoti noto'g'ri" };
+  let size = 0;
+  try { size = enc.encode(JSON.stringify(s)).length; } catch (e) { return { error: "Saralash ma'lumoti noto'g'ri" }; }
+  if (size > SCR_MAX_BYTES) return { error: "Saralash ma'lumoti juda katta (30 KB dan oshmasin)" };
+  const answers = {}, ratings = {};
+  if (s.answers !== undefined) {
+    if (!isPlain(s.answers)) return { error: "Javoblar noto'g'ri" };
+    const ks = Object.keys(s.answers);
+    if (ks.length > 100) return { error: "Javoblar juda ko'p" };
+    for (const k of ks) {
+      const v = s.answers[k];
+      if (!SCR_ID.test(k) || typeof v !== 'string' || v.length > SCR_TEXT_MAX) return { error: "Javob noto'g'ri yoki 3000 belgidan uzun" };
+      if (v.trim()) answers[k] = v;
+    }
+  }
+  if (s.ratings !== undefined) {
+    if (!isPlain(s.ratings)) return { error: "Baholar noto'g'ri" };
+    const ks = Object.keys(s.ratings);
+    if (ks.length > 50) return { error: "Baholar juda ko'p" };
+    for (const k of ks) {
+      const v = s.ratings[k];
+      if (!SCR_ID.test(k) || typeof v !== 'number' || !Number.isInteger(v) || v < 1 || v > 5) return { error: "Baho 1 dan 5 gacha bo'lishi kerak" };
+      ratings[k] = v;
+    }
+  }
+  let verdict = null;
+  if (s.verdict !== undefined && s.verdict !== null) {
+    if (typeof s.verdict !== 'string' || !SCR_VERDICTS[s.verdict]) return { error: "Noto'g'ri qaror" };
+    verdict = s.verdict;
+  }
+  let comment = '';
+  if (s.comment !== undefined && s.comment !== null) {
+    if (typeof s.comment !== 'string' || s.comment.length > SCR_TEXT_MAX) return { error: "Izoh 3000 belgidan oshmasin" };
+    comment = s.comment;
+  }
+  let v = 1;
+  if (s.v !== undefined) {
+    if (typeof s.v !== 'number' || !Number.isInteger(s.v) || s.v < 1 || s.v > 1000) return { error: "Noto'g'ri versiya" };
+    v = s.v;
+  }
+  // updated_at: mijoz vaqti (qoralama bilan solishtirish uchun); noto'g'ri yoki kelajakdagi bo'lsa — server vaqti
+  let updated = serverNow;
+  if (typeof s.updated_at === 'string' && s.updated_at.length <= 40) {
+    const ms = Date.parse(s.updated_at);
+    if (isFinite(ms) && ms <= Date.now() + 86400000) updated = new Date(ms).toISOString();
+  }
+  const rv = Object.keys(ratings).map((k) => ratings[k]);
+  const score = rv.length ? Math.round((rv.reduce((a, b) => a + b, 0) / rv.length) * 10) / 10 : null;
+  return { value: { v, answers, ratings, verdict, comment, score, updated_at: updated } };
+}
+const fmtScr = (n) => (n === null || n === undefined ? '' : Number(n).toFixed(1));
 
 const EDIT_NAMES = { fullname: 'Ism', phone: 'Telefon', telegram: 'Telegram', client: 'Mijoz', rating: 'Baho', archived: 'Arxiv' };
 async function patchLead(request, env, id) {
@@ -372,12 +432,32 @@ async function patchLead(request, env, id) {
     if (k === 'fullname' && v.length < 2) return;
     if (v !== (cur[k] || '')) { sets.push(k + ' = ?'); args.push(v); events.push(['edit', EDIT_NAMES[k] + ' o\'zgartirildi: ' + v]); }
   });
-  if (!sets.length) return reply(request, { ok: true });
+  let scrOut;
+  if (b.screening !== undefined) {
+    if (b.screening === null) {
+      if (cur.screening) { sets.push('screening = ?'); args.push(null); }
+      scrOut = null;
+    } else {
+      const r = validateScreening(b.screening, t);
+      if (r.error) return fail(request, 400, r.error);
+      const json = JSON.stringify(r.value);
+      scrOut = r.value;
+      if (json !== cur.screening) {
+        sets.push('screening = ?'); args.push(json);
+        const oldV = (safeParse(cur.screening, null) || {}).verdict || null;
+        if (r.value.verdict && r.value.verdict !== oldV) {
+          events.push(['screening', 'Saralash: ' + SCR_VERDICTS[r.value.verdict] + (r.value.score !== null ? ' · ' + fmtScr(r.value.score) + '/5' : '')]);
+        }
+      }
+    }
+  }
+  const extra = scrOut === undefined ? {} : { screening: scrOut };
+  if (!sets.length) return reply(request, Object.assign({ ok: true }, extra));
   sets.push('updated_at = ?'); args.push(t);
   const stmts = [env.DB.prepare('UPDATE leads SET ' + sets.join(', ') + ' WHERE id = ?').bind(...args, id)];
   events.forEach((e) => stmts.push(env.DB.prepare('INSERT INTO events (lead_id, at, type, text, from_status, to_status) VALUES (?,?,?,?,?,?)').bind(id, t, e[0], e[1], e[2] || null, e[3] || null)));
   await env.DB.batch(stmts);
-  return reply(request, { ok: true });
+  return reply(request, Object.assign({ ok: true }, extra));
 }
 
 async function addNote(request, env, id) {
@@ -453,12 +533,12 @@ function csvCell(v) {
 }
 async function exportCsv(request, env) {
   const rs = await env.DB.prepare('SELECT * FROM leads ORDER BY created_at DESC').all();
-  const head = ['Sana', 'Ism familiya', 'Telefon', 'Telegram', 'Vakansiya', "Yo'nalish", 'Ball', 'Xulosa', 'Belgilar', 'Holat', 'Baho', 'Mijoz', 'Arxiv', 'Bitta savol javobi', 'ID'];
+  const head = ['Sana', 'Ism familiya', 'Telefon', 'Telegram', 'Vakansiya', "Yo'nalish", 'Ball', 'Xulosa', 'Belgilar', 'Holat', 'Baho', 'Mijoz', 'Arxiv', 'Bitta savol javobi', 'Saralash bali', 'Saralash qarori', 'ID'];
   const lines = [head.map(csvCell).join(',')];
   (rs.results || []).forEach((r) => {
-    const sc = safeParse(r.scores, null) || {}, an = safeParse(r.answers, {}) || {};
+    const sc = safeParse(r.scores, null) || {}, an = safeParse(r.answers, {}) || {}, scr = safeParse(r.screening, null) || {};
     lines.push([r.created_at, r.fullname, r.phone, r.telegram, r.vacancy_title, (r.types || '').split(',').filter(Boolean).map((x) => YONALISH_NOMI[x] || x).join(', '),
-      r.ball, r.xulosa, (sc.belgilar || []).join('; '), r.status, r.rating, r.client, r.archived ? 'ha' : '', an.savol, r.id].map(csvCell).join(','));
+      r.ball, r.xulosa, (sc.belgilar || []).join('; '), r.status, r.rating, r.client, r.archived ? 'ha' : '', an.savol, fmtScr(scr.score), SCR_VERDICTS[scr.verdict] || '', r.id].map(csvCell).join(','));
   });
   const h = Object.assign({ 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': 'attachment; filename="nomzodlar.csv"', 'Cache-Control': 'no-store' }, corsHeaders(request));
   return new Response('﻿' + lines.join('\r\n'), { status: 200, headers: h });

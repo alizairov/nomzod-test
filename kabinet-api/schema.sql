@@ -24,8 +24,13 @@ CREATE TABLE IF NOT EXISTS leads (
   total_ms INTEGER,
   page TEXT,
   ua TEXT,
-  archived INTEGER DEFAULT 0
+  archived INTEGER DEFAULT 0,
+  screening TEXT
 );
+-- Eslatma: `screening` (HR saralash suhbati, JSON) ustuni keyin qo'shilgan. Eski (mavjud) bazalarda CREATE TABLE IF NOT EXISTS uni qo'shmaydi,
+-- shuning uchun ularda bir marta qo'lda bajaring (ikkinchi marta bajarilsa "duplicate column" xatosi beradi — bu normal):
+--   ALTER TABLE leads ADD COLUMN screening TEXT;
+-- Yangi bazada bu kerak emas. schema.sql ni qayta ishga tushirish xavfsiz.
 CREATE INDEX IF NOT EXISTS idx_leads_status ON leads(status, position);
 CREATE INDEX IF NOT EXISTS idx_leads_vacancy ON leads(vacancy);
 CREATE INDEX IF NOT EXISTS idx_leads_created ON leads(created_at);
