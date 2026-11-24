@@ -865,20 +865,48 @@
   }
   function hhmm(iso) { return iso ? fmtDate(iso).slice(11) : ''; }
   function scrInit(d) {
-    var srv = d.lead.screening && typeof d.lead.screening === 'object' ? scrNorm(d.lead.screening) : null;
+    var blocks0 = scrBlocks(d.lead);
+    var srv = d.lead.screening && typeof d.lead.screening === 'object' ? scrMigrate(scrNorm(d.lead.screening), blocks0) : null;
     var sc = { id: d.id, data: srv || scrEmpty(), rev: 0, dirty: false, saving: false, timer: null, status: srv ? 'saved' : 'idle', savedAt: srv ? srv.updated_at : '', draftOffer: null, move: null, ui: null };
     var raw = lsGet(DKEY + d.id), dr = null;
     if (raw) { try { dr = JSON.parse(raw); } catch (e) { dr = null; } }
     if (dr && dr.data) {
-      var ld = scrNorm(dr.data);
+      var ld = scrMigrate(scrNorm(dr.data), blocks0);
       if (!srv || String(ld.updated_at) > String(srv.updated_at)) sc.draftOffer = ld; else lsDel(DKEY + d.id);
     } else if (raw) lsDel(DKEY + d.id);
     return sc;
   }
+  /* javob formati: answers[qid] = tanlangan variant id'lari "|" bilan; answers[qid + "__n"] = izoh */
+  function scrQs(blocks) { var o = []; blocks.forEach(function (b) { b.questions.forEach(function (q) { o.push(q); }); }); return o; }
+  function scrSel(data, q) {
+    var raw = data.answers[q.id]; if (typeof raw !== 'string' || !raw) return [];
+    var ids = raw.split('|'), out = [];
+    (q.options || []).forEach(function (o) { if (ids.indexOf(o.id) >= 0) out.push(o.id); });
+    return q.type === 'single' ? out.slice(0, 1) : out;
+  }
+  function scrSetSel(data, q, ids) { if (ids.length) data.answers[q.id] = ids.join('|'); else delete data.answers[q.id]; }
+  function scrNote(data, q) { return data.answers[q.id + '__n'] || ''; }
+  /* eski (v1) erkin matnli javobni izohga o'tkazadi */
+  function scrMigrate(data, blocks) {
+    scrQs(blocks).forEach(function (q) {
+      var raw = data.answers[q.id]; if (typeof raw !== 'string' || !raw.trim()) return;
+      var ids = raw.split('|'), valid = ids.every(function (x) { return (q.options || []).some(function (o) { return o.id === x; }); });
+      if (valid) return;
+      var nk = q.id + '__n', old = data.answers[nk];
+      data.answers[nk] = (old ? old + '\n' : '') + raw; if (data.answers[nk].length > 3000) data.answers[nk] = data.answers[nk].slice(0, 3000);
+      delete data.answers[q.id];
+    });
+    return data;
+  }
   function scrAnswered(sc, blocks) {
     var n = 0, tot = 0;
-    blocks.forEach(function (b) { b.questions.forEach(function (q) { tot++; if ((sc.data.answers[q.id] || '').trim()) n++; }); });
+    scrQs(blocks).forEach(function (q) { tot++; if (scrSel(sc.data, q).length || scrNote(sc.data, q).trim()) n++; });
     return { n: n, tot: tot };
+  }
+  function scrTones(sc, blocks) {
+    var t = { good: 0, warn: 0, bad: 0 };
+    scrQs(blocks).forEach(function (q) { var ids = scrSel(sc.data, q); (q.options || []).forEach(function (o) { if (ids.indexOf(o.id) >= 0 && t[o.tone] !== undefined) t[o.tone]++; }); });
+    return t;
   }
   function scrAvg(sc, crit) {
     var v = [], r = sc.data.ratings; crit.forEach(function (c) { if (r[c.id]) v.push(r[c.id]); });
@@ -981,10 +1009,11 @@
     /* yuqori yopishqoq panel */
     U.prog = h('span', { class: 'scr__prog' }); U.avg = h('span', { class: 'scr__avg' });
     U.stat = h('span', { class: 'scr__stat', role: 'status' });
+    U.tone = h('span', { class: 'scr__tone', 'aria-label': 'Belgilangan variantlar' });
     U.retry = h('button', { class: 'btn btn--line btn--sm', type: 'button', text: 'Qayta urinib köriş', hidden: true });
     U.retry.addEventListener('click', function () { scrSave(sc); });
     U.pbar = h('i');
-    root.appendChild(h('div', { class: 'scr__bar' }, [h('div', { class: 'scr__barrow' }, [U.prog, U.avg, h('span', { class: 'scr__sp' }), U.stat, U.retry]), h('div', { class: 'scr__pb', 'aria-hidden': 'true' }, [U.pbar])]));
+    root.appendChild(h('div', { class: 'scr__bar' }, [h('div', { class: 'scr__barrow' }, [U.prog, U.tone, U.avg, h('span', { class: 'scr__sp' }), U.stat, U.retry]), h('div', { class: 'scr__pb', 'aria-hidden': 'true' }, [U.pbar])]));
 
     /* qoralama taklifi */
     if (sc.draftOffer) {
@@ -1006,30 +1035,81 @@
     blocks.forEach(function (b) {
       var card = h('section', { class: 'scr__card', 'aria-label': toNew(b.title) }, [h('div', { class: 'scr__ch' }, [h('h3', { text: toNew(b.title) })])]);
       b.questions.forEach(function (q) {
-        var id = 'scq-' + q.id, val = data.answers[q.id] || '';
-        var wrap = h('div', { class: 'scr__q' + (val.trim() ? ' is-done' : ''), 'data-qid': q.id });
-        wrap.appendChild(h('div', { class: 'scr__qh' }, [h('span', { class: 'scr__chk', 'aria-hidden': 'true' }, [icon('check')]), h('label', { class: 'scr__ql', for: id, text: toNew(q.text) })]));
+        var id = 'scq-' + q.id, single = q.type === 'single', opts = q.options || [];
+        var wrap = h('div', { class: 'scr__q', 'data-qid': q.id });
+        wrap.appendChild(h('div', { class: 'scr__qh' }, [h('span', { class: 'scr__chk', 'aria-hidden': 'true' }, [icon('check')]), h('div', { class: 'scr__ql', id: id + '-l', text: toNew(q.text) })]));
         if (q.hint) wrap.appendChild(h('p', { class: 'scr__hint' }, [icon('info'), h('span', { text: toNew(q.hint) })]));
         var ref = scrRef(l, q.id); if (ref) wrap.appendChild(ref);
-        var inp = q.short ? h('input', { class: 'inp scr__in', id: id, type: 'text', maxlength: '3000', autocomplete: 'off' }) : h('textarea', { class: 'inp scr__in', id: id, rows: '2', maxlength: '3000' });
-        inp.value = val;
-        inp.addEventListener('input', function () {
-          var v = inp.value;
-          if (v.trim()) data.answers[q.id] = v; else delete data.answers[q.id];
-          wrap.classList.toggle('is-done', !!v.trim()); grow(inp); scrTouch(sc);
+
+        var group = h('div', { class: 'scr__chips', role: single ? 'radiogroup' : 'group', 'aria-labelledby': id + '-l', 'data-qid': q.id }), chips = [];
+        function paint() {
+          var sel = scrSel(data, q), tab = -1;
+          opts.forEach(function (o, i) { if (tab < 0 && sel.indexOf(o.id) >= 0) tab = i; });
+          if (tab < 0) tab = 0;
+          chips.forEach(function (c, i) {
+            var on = sel.indexOf(opts[i].id) >= 0;
+            c.setAttribute(single ? 'aria-checked' : 'aria-pressed', String(on)); c.setAttribute('tabindex', i === tab ? '0' : '-1');
+          });
+          wrap.classList.toggle('is-done', !!(sel.length || scrNote(data, q).trim()));
+        }
+        function toggle(i) {
+          var sel = scrSel(data, q), oid = opts[i].id, at = sel.indexOf(oid);
+          if (single) sel = at >= 0 ? [] : [oid];
+          else { if (at >= 0) sel.splice(at, 1); else sel.push(oid); sel = opts.map(function (o) { return o.id; }).filter(function (x) { return sel.indexOf(x) >= 0; }); }
+          scrSetSel(data, q, sel); paint(); scrTouch(sc);
+        }
+        opts.forEach(function (o, i) {
+          var attrs = { class: 'scr__chip' + (o.tone ? ' scr__chip--' + o.tone : ''), type: 'button', 'data-o': o.id, text: toNew(o.text) };
+          if (single) attrs.role = 'radio';
+          var c = h('button', attrs);
+          c.addEventListener('click', function () { toggle(i); });
+          chips.push(c); group.appendChild(c);
         });
-        inp.addEventListener('blur', function () { scrFlush(sc); });
-        inp.addEventListener('keydown', function (e) {
-          if ((e.key === 'Enter' && (e.ctrlKey || e.metaKey)) || (e.key === 'Enter' && q.short)) {
-            e.preventDefault(); var i = order.indexOf(inp), nx = order[i + 1]; if (nx) { nx.focus(); if (nx.scrollIntoView) nx.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' }); }
-          }
+        group.addEventListener('keydown', function (e) {
+          var i = chips.indexOf(doc.activeElement); if (i < 0) return;
+          var k = e.key;
+          if ((k === 'Enter') && (e.ctrlKey || e.metaKey)) { e.preventDefault(); scrNext(group); return; }
+          if (e.ctrlKey || e.metaKey || e.altKey) return;
+          if (/^[1-9]$/.test(k)) { var n = Number(k) - 1; if (n < chips.length) { e.preventDefault(); toggle(n); chips[n].focus(); } return; }
+          var to = -1;
+          if (k === 'ArrowRight' || k === 'ArrowDown') to = (i + 1) % chips.length; else if (k === 'ArrowLeft' || k === 'ArrowUp') to = (i + chips.length - 1) % chips.length;
+          else if (k === 'Home') to = 0; else if (k === 'End') to = chips.length - 1;
+          if (to < 0) return;
+          e.preventDefault();
+          if (single) { scrSetSel(data, q, [opts[to].id]); paint(); scrTouch(sc); }
+          else { chips.forEach(function (c, j) { c.setAttribute('tabindex', j === to ? '0' : '-1'); }); }
+          chips[to].focus();
         });
-        wrap.appendChild(inp); order.push(inp);
+        wrap.appendChild(group); order.push(group);
+
+        /* ixtiyoriy izoh */
+        var note = h('textarea', { class: 'inp scr__in scr__note', id: id + '-n', rows: '1', maxlength: '3000', placeholder: q.notePlaceholder ? toNew(q.notePlaceholder) : 'Izoh (ixtiyoriy)', 'aria-label': 'Izoh: ' + toNew(q.text), hidden: true });
+        var nl = h('button', { class: 'scr__nl', type: 'button', 'aria-expanded': 'false', 'aria-controls': id + '-n', text: '+ Izoh' });
+        function openNote(focus) { note.hidden = false; nl.hidden = true; nl.setAttribute('aria-expanded', 'true'); grow(note); if (focus) note.focus(); }
+        nl.addEventListener('click', function () { openNote(true); });
+        note.value = scrNote(data, q);
+        if (note.value.trim()) { note.hidden = false; nl.hidden = true; nl.setAttribute('aria-expanded', 'true'); }
+        note.addEventListener('input', function () {
+          var v = note.value, nk = q.id + '__n';
+          if (v.trim()) data.answers[nk] = v; else delete data.answers[nk];
+          paint(); grow(note); scrTouch(sc);
+        });
+        note.addEventListener('blur', function () { scrFlush(sc); });
+        note.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); scrNext(group); }
+        });
+        wrap.appendChild(nl); wrap.appendChild(note);
+        paint();
         card.appendChild(wrap);
       });
       root.appendChild(card);
     });
-    root.appendChild(h('p', { class: 'scr__hl', text: 'Ctrl/⌘ + Enter — keyingi savolga ötiş' }));
+    function scrNext(group) {
+      var i = order.indexOf(group), nx = order[i + 1]; if (!nx) return;
+      var t = nx.tagName === 'TEXTAREA' ? nx : (nx.querySelector('[tabindex="0"]') || nx.querySelector('button'));
+      if (t) { t.focus(); if (t.scrollIntoView) t.scrollIntoView({ block: 'center', behavior: reduce ? 'auto' : 'smooth' }); }
+    }
+    root.appendChild(h('p', { class: 'scr__hl', text: 'Variantni bosiş yoki 1–9 tugmasi · Ctrl/⌘ + Enter — keyingi savolga ötiş' }));
 
     /* baholash */
     U.ravg = h('span', { class: 'scr__avg' });
@@ -1146,6 +1226,8 @@
     U.prog.textContent = a.n + ' / ' + a.tot + ' savol';
     U.avg.textContent = ''; U.avg.appendChild(doc.createTextNode('Ball: ')); U.avg.appendChild(h('b', { text: avg === null ? '—' : avg.toFixed(1) }));
     U.ravg.textContent = avg === null ? '' : 'Örtaça: ' + avg.toFixed(1) + ' / 5';
+    var tn = scrTones(sc, U.blocks); U.tone.textContent = '';
+    if (tn.good || tn.warn || tn.bad) [['good', '✓'], ['warn', '⚠'], ['bad', '✕']].forEach(function (x) { U.tone.appendChild(h('span', { class: 'scr__tn scr__tn--' + x[0], title: { good: 'Ijobiy', warn: "E'tibor", bad: 'Salbiy' }[x[0]], text: x[1] + ' ' + tn[x[0]] })); });
     U.pbar.style.width = (a.tot ? Math.round(a.n / a.tot * 100) : 0) + '%';
     var st = sc.status, txt = '', cls = 'scr__stat';
     if (st === 'saving') txt = 'Saqlanmoqda…';
