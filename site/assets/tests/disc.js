@@ -13,26 +13,26 @@ window.DISC_TEST = {
     { q: ["Siz mehmonga keldingiz va 10 dan ortiq odam yig'ilgan. Sizning munosabatingiz:",
          "Вы пришли в гости, где собралось уже более 10 человек. Ваша реакция:"],
       o: [
-        ["A", "Ajoyib! Menga gavjum guruhlarda yig'ilish yoqadi. Men vaqtichog'lik qilishim va yangi do'stlar orttirishim mumkin.",
-              "Здорово! Обожаю шумные компании, можно повеселиться, завести новых знакомых."],
+        ["A", "Ajoyib! Menga gavjum davralar yoqadi. Yayrab suhbatlashishim va yangi do'stlar orttirishim mumkin.",
+              "Здорово! Люблю большие компании: можно живо пообщаться и завести новых знакомых."],
         ["B", "Men jamoaviy tadbirlarda bo'lishni yaxshi ko'raman va tezda hammaning diqqat markazida bo'lolaman. Yoki maroqli vaqt o'tkazaman yoki hech bo'lmaganda foydali odamlar bilan uchrashaman.",
               "Я люблю бывать в компаниях, часто оказываюсь в центре внимания. Или удастся хорошенько зажечь, или уж, на худой конец, с полезными людьми познакомлюсь."],
         ["C", "Umid qilamanki, men bu yerda birorta tanishlarimni uchrataman, ular bilan muloqot qilish men uchun yoqimli bo'ladi. Agar hamma begona bo'lsa, men o'zimni noqulay his qilaman.",
               "Надеюсь, что встречу здесь каких-нибудь знакомых, мне будет приятно с ними пообщаться. Если все – незнакомые люди, то мне будет некомфортно."],
-        ["D", "Men gavjum guruhlarda bo'lishni uncha yoqtirmayman va ziyofatlarga faqat foydali munosabatlar o'rnatish yoki saqlab qolish uchun boraman. Menga bir-ikki kishi bilan tinch va sokin joyda o'tirib, suhbatlashish yoqimliroq.",
-              "Я не очень люблю шумные компании и хожу на вечеринки, только чтобы завести или поддержать полезные знакомства. Мне приятнее посидеть и поговорить с одним-двумя людьми в покое и тишине."]
+        ["D", "Men gavjum guruhlarda bo'lishni uncha yoqtirmayman va bunday yig'inlarga faqat foydali munosabatlar o'rnatish yoki saqlab qolish uchun boraman. Menga bir-ikki kishi bilan tinch va sokin joyda o'tirib, suhbatlashish yoqimliroq.",
+              "Я не очень люблю шумные компании и хожу на такие встречи, только чтобы завести или поддержать полезные знакомства. Мне приятнее посидеть и поговорить с одним-двумя людьми в покое и тишине."]
       ] },
-    { q: ["Xuddi shu ziyofatda sizga so'z berishdi. Sizning munosabatingiz:",
-         "На этой же вечеринке вас попросили произнести тост. Ваша реакция:"],
+    { q: ["Xuddi shu davrada sizdan so'z aytishni so'rashdi. Sizning munosabatingiz:",
+         "На этой же встрече вас попросили выступить с речью. Ваша реакция:"],
       o: [
         ["A", "Menga so'z berishganda o'zimga e'tiborni jalb qilishni yoqtirmayman. Men rozi bo'lmayman ham, rad etmayman ham, lekin nimadir qilib undan qochishga harakat qilaman.",
-              "Я не люблю привлекать к себе внимание, ненавижу произносить тосты. Я не буду ни соглашаться, ни отказываться, а просто как-нибудь увильну."],
+              "Я не люблю привлекать к себе внимание, не люблю выступать с речью. Я не буду ни соглашаться, ни отказываться, а просто как-нибудь увильну."],
         ["B", "Men yaxshi hikoyachiman va bir nechta ajoyib gaplarni bilaman. Hamma bundan xursand bo'ladi.",
-              "Я хороший рассказчик и знаю пару прикольных тостов. Все будут в восторге."],
+              "Я хороший рассказчик и знаю пару интересных историй. Все будут в восторге."],
         ["C", "Men so'zga chiqishdan qo'rqmayman, hatto undan zavqlanaman, aqlli va aniq bir narsa aytaman.",
-              "Я не боюсь произносить тосты, даже получаю от этого удовольствие, скажу что-нибудь умное и по делу."],
+              "Я не боюсь выступать, даже получаю от этого удовольствие, скажу что-нибудь умное и по делу."],
         ["D", "Katta ehtimol bilan ishonarli bahona bilan rad etaman. Ammo agar men biznes manfaati uchun yaxshi taassurot qoldirishim kerak bo'lsa, unda men mos keladigan, aniq gaplarni ayta olaman.",
-              "Я, скорее всего, откажусь под убедительным предлогом. Но если мне надо произвести хорошее впечатление для пользы дела, то могу и произнести уместный изящный тост."]
+              "Я, скорее всего, откажусь под убедительным предлогом. Но если мне надо произвести хорошее впечатление для пользы дела, то могу сказать уместную и красивую речь."]
       ] },
     { q: ["Boshlig'ingiz sizga va hamkasbingizga topshiriq bergan, lekin uning bajarilishi uchun mas'ul shaxsni tayinlamagan. Ikkalangiz bir-biringizga ishondingiz va vazifani unutdingiz. Endi xo'jayiningiz vazifani bajarmaganingiz uchun sizga tanbeh bermoqda. Sizning munosabatingiz:",
          "Ваш начальник дал вам и вашему сослуживцу задание, но не назначил ответственного за его выполнение. Вы оба понадеялись друг на друга и забыли про задание. Сейчас ваш начальник ругает вас за невыполнение задания. Ваша реакция:"],
@@ -63,10 +63,10 @@ window.DISC_TEST = {
       o: [
         ["A", "Qarindoshlarnikiga borasiz yoki kunni oilangiz (yoki turmush o'rtog'ingiz) bilan o'tkazasiz.",
               "Съездить в гости к родственникам или иначе провести день с семьей, супругой(м)."],
-        ["B", "Parkka yoki do'stlar bilan ziyofatga borasiz.",
-              "Сходить в парк или на вечеринку с друзьями."],
+        ["B", "Parkka sayrga yoki do'stlar davrasiga borasiz.",
+              "Сходить в парк или встретиться с друзьями."],
         ["C", "Do'stlar bilan kartingga borasiz yoki futbol o'ynaysiz.",
-              "Съездить на картинг или поиграть в футбол (карты) с друзьями."],
+              "Съездить на картинг или поиграть в футбол с друзьями."],
         ["D", "Konsert yoki ko'rgazmaga yolg'iz yoki yaqinlaringiz bilan borishingiz mumkin.",
               "Сходить на концерт или выставку, можно в одиночку или с близким человеком."]
       ] },
@@ -93,12 +93,12 @@ window.DISC_TEST = {
     { q: ["Ular sizni lavozimingizni oshirishga qaror qilishganini bilib qoldingiz. Eng avvalo nima qilasiz:",
          "Вы узнали, что вас решили повысить по службе. Что вы сделаете прежде всего:"],
       o: [
-        ["A", "O'z oilangiz va do'stlaringizni bu yangilik haqida xabardor qilish, uyda kichik ziyofat tashkil qilish.",
+        ["A", "O'z oilangiz va do'stlaringizni bu yangilik haqida xabardor qilish, uyda kichik oilaviy dasturxon yozish.",
               "Сообщите родным и близким о повышении, устроите уютный домашний праздник."],
         ["B", "O'zingizga qimmatbaho buyum sotib olish, shunda siz yangi lavozimda birinchi ish kuningizda (soat, kostyum, mashina) ish joyingizga munosib shaklda kelishingiz mumkin.",
               "Купите себе какую-нибудь дорогую вещь, чтобы в достойном виде прибыть на место работы в первый день на новой должности (часы, костюм, машину)."],
-        ["C", "Do'stlaringiz bilan birga quvonchni baham ko'rasiz, katta dabdabali ziyofat uyushtirasiz.",
-              "Поделитесь радостью с друзьями, закатите большую шумную вечеринку."],
+        ["C", "Do'stlaringiz bilan birga quvonchni baham ko'rasiz, ularni yig'ib, katta dasturxon yozasiz.",
+              "Поделитесь радостью с друзьями, соберёте их на большой праздничный ужин."],
         ["D", "Yangi joyda ishlashni rasman boshlamaguningizcha vaqtli xursand bo'lmaysiz, pulni behuda sarflash va ko'tarilish haqida gapirishga shoshmay turasiz. Axir, buyruq hali imzolanmagan.",
               "Подождете радоваться, сорить деньгами и трезвонить о повышении, пока не начнете работать на новом месте. Ведь еще даже приказ не подписан."]
       ] },
@@ -112,7 +112,7 @@ window.DISC_TEST = {
         ["C", "Imtihonga miyani dam oldirib kelishingiz uchun imtihon oldidan yaxshi uxlash yaxshiroq. Siz imtihonga oldindan tayyorgarlik ko'rgansiz.",
               "Лучше хорошенько отоспаться перед экзаменом, чтобы прийти на него со свежей головой. К экзамену вы готовились заранее."],
         ["D", "Oxirgi kechada tayyorlanib bo'lmaydi. Imtihon haqida umuman o'ylamay, dam olib, ko'ngil ochgan yaxshi.",
-              "Перед смертью не надышишься. Лучше вообще не думать об экзамене, а пойти повеселиться."]
+              "Перед смертью не надышишься. Лучше вообще не думать об экзамене, а просто отдохнуть."]
       ] },
     { q: ["Sizningcha, g'alaba qozonish, muvaffaqiyatga erishish uchun asosiy narsa nima?",
          "Как вы считаете, что является главным для победы, для достижения успеха:"],
@@ -129,8 +129,8 @@ window.DISC_TEST = {
               "Фирму финансового консалтинга или фирму по борьбе с вредными насекомыми."],
         ["B", "Xavfsizlik kompaniyasi yoki qurol do'koni.",
               "Охранную фирму или оружейный магазин."],
-        ["C", "Restoran yoki tungi klub.",
-              "Ресторан или ночной клуб."],
+        ["C", "Restoran yoki to'yxona.",
+              "Ресторан или банкетный зал."],
         ["D", "Tibbiyot markazi yoki xayriya xizmatlari byurosi.",
               "Медицинский центр или бюро добрых услуг."]
       ] },
@@ -139,7 +139,7 @@ window.DISC_TEST = {
       o: [
         ["A", "Mashhur odamlar bilan, suratlaringiz yoki yorqin zamonaviy rasmlaringiz.",
               "Своими фото с известными людьми или яркими современными картинами."],
-        ["B", "Turmush o'rtog'ingiz va farzandlaringizning fotosuratlari yoki korporativ ziyofatdagi hamkasblaringizning guruh fotosuratlari.",
+        ["B", "Turmush o'rtog'ingiz va farzandlaringizning fotosuratlari yoki korporativ tadbirdagi hamkasblaringizning guruh fotosuratlari.",
               "Фото супруга(и) и детей или групповыми фото ваших сослуживцев на корпоративе."],
         ["C", "Diplomlar yoki neytral rasmlar.",
               "Дипломами или нейтральными картинами."],
@@ -161,8 +161,8 @@ window.DISC_TEST = {
     { q: ["Siz ishtirok etishda o'zingizni eng qulay his qiladigan va g'alaba qozonish imkoniyati eng yuqori bo'lgan musobaqani tanlashingiz kerak. Siz nimani tanlaysiz?",
          "Вам надо выбрать соревнование, в котором вам комфортнее всего будет участвовать и где у вас больше шансов на победу. Что вы выберете?"],
       o: [
-        ["A", "Reaksiya tezligi emas, balki aql-zakovat baholanadigan individual musobaqalar (shaxmat, bilyard, poker).",
-              "Индивидуальные соревнования, где оценивается сообразительность, а не быстрота реакции (шахматы, бильярд, покер)."],
+        ["A", "Reaksiya tezligi emas, balki aql-zakovat baholanadigan individual musobaqalar (shaxmat, bilyard, shashka).",
+              "Индивидуальные соревнования, где оценивается сообразительность, а не быстрота реакции (шахматы, бильярд, шашки)."],
         ["B", "Tezlik va jasorat uchun individual musobaqalar (parashyutdan sakrash, avtopoyga, tog' chang'isi).",
               "Индивидуальные соревнования на скорость и смелость (прыжки с парашютом, автогонки, горные лыжи)."],
         ["C", "Jamoa musobaqalari, yaxshisi g'ayrioddiy narsalar (loydagi futbol, har xil korporativ qiziqarli musobaqalar).",
