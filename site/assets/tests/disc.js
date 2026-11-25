@@ -1,9 +1,9 @@
-/* DISC metodikasi — onlayn test (UZ / RU). Faqat matnlar: baholash kaliti bu yerda YO'Q, u serverda (kabinet-api/src/index.js).
+/* Shaxsiyat testi (ichkarida: DISC) — onlayn test (UZ / RU). Faqat matnlar: baholash kaliti bu yerda YO'Q, u serverda (kabinet-api/src/index.js).
    Har bir savol: q = [uz, ru]; o = [[harf, uz, ru], ...] (7- va 10-savolda faqat A/B, qolganlarida A/B/C/D).
    Uzbekcha matn eski lotin alifbosida yoziladi; yangi alifboga brauzerda alphabet.js o'giradi (ruscha matnga tegmaydi). */
 window.DISC_TEST = {
   id: "disc",
-  title: ["DISC metodikasi bo'yicha baholash", "Оценка по методике DISC"],
+  title: ["Shaxsiyat testi", "Тест личности"],
   time: ["taxminan 10 daqiqa", "около 10 минут"],
   instruction: [
     "Ushbu testning natijasi aniq chiqishi sizning aniq va shaffof javoblaringizga ko'ra bo'ladi. Shuning uchun savollarga samimiy javob bering. Agar shu holatga aynan tushgan bo'lsangiz, savollarga odatdagidek javob bering. Agar bunday holatga tushmagan bo'lsangiz ham, xuddi o'zingizni o'sha vaziyatga tushgandek javob bering.",

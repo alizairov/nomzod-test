@@ -17,7 +17,7 @@
   /* ---------- matnlar (UZ / RU) ---------- */
   var I18N = {
     uz: {
-      eyebrow: 'DISC test', chips: ['15 ta savol', 'Taxminan 10 daqiqa', "To'g'ri yoki noto'g'ri javob yo'q"],
+      eyebrow: 'Shaxsiyat testi', chips: ['15 ta savol', 'Taxminan 10 daqiqa', "To'g'ri yoki noto'g'ri javob yo'q"],
       instr: "Yo'riqnoma", about: "Ma'lumotlaringiz", aboutHint: 'Yulduzcha bilan belgilanganlari majburiy.',
       fullname: 'F.I.Sh', fullnamePh: 'Familiya Ism Sharifingiz', phone: 'Telefon', telegram: 'Telegram', telegramPh: '@username',
       position: 'Lavozim', positionPh: 'Masalan: HR menejer', company: 'Kompaniya', companyPh: 'Ishlayotgan kompaniya nomi', opt: 'ixtiyoriy',
@@ -34,7 +34,7 @@
       bar: "Jarayon"
     },
     ru: {
-      eyebrow: 'Тест DISC', chips: ['15 вопросов', 'Около 10 минут', 'Нет правильных и неправильных ответов'],
+      eyebrow: 'Тест личности', chips: ['15 вопросов', 'Около 10 минут', 'Нет правильных и неправильных ответов'],
       instr: 'Инструкция', about: 'Ваши данные', aboutHint: 'Поля со звёздочкой обязательны.',
       fullname: 'Ф.И.О.', fullnamePh: 'Фамилия Имя Отчество', phone: 'Телефон', telegram: 'Telegram', telegramPh: '@username',
       position: 'Должность', positionPh: 'Например: HR-менеджер', company: 'Компания', companyPh: 'Название компании, где вы работаете', opt: 'необязательно',

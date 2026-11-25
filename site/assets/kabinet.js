@@ -1557,7 +1557,7 @@
       var q = S.disc.q.trim();
       dEl.list.appendChild(h('div', { class: 'empty' }, q
         ? [h('h3', { text: u('Hech narsa topilmadi') }), h('p', { text: u("Qidiruv sözini özgartirib körin.") })]
-        : [h('h3', { text: S.disc.err ? u("Yuklab bölmadi") : u("Hali test natijalari yöq") }), h('p', { text: S.disc.err ? S.disc.err : u("Nomzodlar /disc/ sahifasidagi testni töldirganda natijalar şu yerda körinadi.") })]));
+        : [h('h3', { text: S.disc.err ? u("Yuklab bölmadi") : u("Hali test natijalari yöq") }), h('p', { text: S.disc.err ? S.disc.err : u("Nomzodlar /shaxsiyat-testi/ sahifasidagi testni töldirganda natijalar şu yerda körinadi.") })]));
       return;
     }
     vis.forEach(function (r) { dEl.list.appendChild(dRow(r)); });
