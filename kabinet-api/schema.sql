@@ -48,3 +48,7 @@ CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT
 );
+
+-- DISC testi natijalari (POST /api/disc, kabinetdagi "DISC" bo'limi)
+CREATE TABLE IF NOT EXISTS disc_results (id TEXT PRIMARY KEY, created_at TEXT, lang TEXT, fullname TEXT, phone TEXT, telegram TEXT, position TEXT, company TEXT, answers TEXT, d INTEGER, i INTEGER, s INTEGER, c INTEGER, pct TEXT, primary_type TEXT, total_ms INTEGER, ua TEXT, note TEXT, archived INTEGER DEFAULT 0);
+CREATE INDEX IF NOT EXISTS idx_disc_created ON disc_results(created_at);

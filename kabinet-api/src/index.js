@@ -1,6 +1,6 @@
 /**
  * Nomzod kabinet — Cloudflare Worker (D1 + KV). Bog'liqliksiz, oddiy ES module.
- * Ommaviy: POST /api/apply (saytdagi anketa). Qolgan hamma narsa — parol bilan (Bearer token).
+ * Ommaviy: POST /api/apply (saytdagi anketa) va POST /api/disc (DISC testi). Qolgan hamma narsa — parol bilan (Bearer token).
  * Baholash kaliti (KALIT v4) D1'dagi settings(key='kalit') qatorida turadi, repoda YO'Q.
  * Baholash mantig'i site/apps-script/Vakansiya.gs dagi score_ ning aniq ko'chirmasi.
  */
@@ -544,6 +544,174 @@ async function exportCsv(request, env) {
   return new Response('﻿' + lines.join('\r\n'), { status: 200, headers: h });
 }
 
+/* ---------- DISC testi ---------- */
+/* Kalit: savol raqami -> { tip: variant harfi }. Variant harfi qaysi tipga ball berishini bildiradi.
+   7- va 10-savolda faqat A/B: bitta variant ikki tipga ball beradi. Jami har doim 17 ball (13 + 2 + 2). */
+const DISC_TYPES = ['D', 'I', 'S', 'C'];
+const DISC_KEY = {
+  1: { D: 'B', I: 'A', S: 'C', C: 'D' },
+  2: { D: 'C', I: 'B', S: 'A', C: 'D' },
+  3: { D: 'D', I: 'B', S: 'C', C: 'A' },
+  4: { D: 'A', I: 'C', S: 'D', C: 'B' },
+  5: { D: 'C', I: 'B', S: 'A', C: 'D' },
+  6: { D: 'C', I: 'A', S: 'D', C: 'B' },
+  7: { D: 'B', I: 'B', S: 'A', C: 'A' },
+  8: { D: 'B', I: 'C', S: 'A', C: 'D' },
+  9: { D: 'A', I: 'D', S: 'B', C: 'C' },
+  10: { D: 'A', I: 'B', S: 'B', C: 'A' },
+  11: { D: 'B', I: 'C', S: 'D', C: 'A' },
+  12: { D: 'D', I: 'A', S: 'B', C: 'C' },
+  13: { D: 'B', I: 'A', S: 'C', C: 'D' },
+  14: { D: 'B', I: 'C', S: 'D', C: 'A' },
+  15: { D: 'A', I: 'B', S: 'C', C: 'D' },
+};
+const DISC_Q = 15;
+const DISC_TOTAL = 17;
+const discLetters = (q) => (q === 7 || q === 10 ? ['A', 'B'] : ['A', 'B', 'C', 'D']);
+/** Tanlangan variant qaysi tip(lar)ga ball beradi: ['D', 'I'] */
+export function discTypesFor(q, letter) { return DISC_TYPES.filter((t) => DISC_KEY[q] && DISC_KEY[q][t] === letter); }
+/** Javoblarni (answers = { "1": "A", ... }) tekshiradi; { error } yoki { answers } (katta harfli, tozalangan) qaytaradi. */
+export function discValidate(raw) {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return { error: 'Javoblar topilmadi' };
+  const out = {};
+  for (let q = 1; q <= DISC_Q; q++) {
+    const v = typeof raw[q] === 'string' ? raw[q].trim().toUpperCase() : '';
+    if (!v) return { error: 'Barcha savollarga javob bering' };
+    if (discLetters(q).indexOf(v) < 0) return { error: 'Noto\'g\'ri javob variant: ' + q + '-savol' };
+    out[q] = v;
+  }
+  return { answers: out };
+}
+/** Sof funksiya (tarmoq/DB yo'q): { d, i, s, c, pct: {D,I,S,C} (yig'indisi 100), primary: 'D' | 'D/I' ... } */
+export function discScore(answers) {
+  const n = { D: 0, I: 0, S: 0, C: 0 };
+  for (let q = 1; q <= DISC_Q; q++) discTypesFor(q, answers[q]).forEach((t) => { n[t]++; });
+  // foizlar: eng katta qoldiq usuli (floor + qolgan ballarni eng katta qoldiqqa; teng bo'lsa D, I, S, C tartibida) — yig'indisi aniq 100
+  const quota = {}, pct = {};
+  let left = 100;
+  DISC_TYPES.forEach((t) => { quota[t] = (n[t] / DISC_TOTAL) * 100; pct[t] = Math.floor(quota[t] + 1e-9); left -= pct[t]; });
+  DISC_TYPES.slice().sort((x, y) => (quota[y] - pct[y]) - (quota[x] - pct[x]) || DISC_TYPES.indexOf(x) - DISC_TYPES.indexOf(y))
+    .slice(0, left).forEach((t) => { pct[t]++; });
+  const max = Math.max(n.D, n.I, n.S, n.C);
+  const primary = DISC_TYPES.filter((t) => n[t] === max).join('/');
+  return { d: n.D, i: n.I, s: n.S, c: n.C, pct, primary };
+}
+
+const DISC_COLS = 'id, created_at, lang, fullname, phone, telegram, position, company, d, i, s, c, pct, primary_type, total_ms, note, archived';
+const fixDisc = (r) => Object.assign(r, { pct: safeParse(r.pct, { D: 0, I: 0, S: 0, C: 0 }) });
+
+function notifyDisc(env, ctx, r, sc) {
+  if (!env.TELEGRAM_TOKEN || !env.TELEGRAM_CHAT_ID) return;
+  const lines = ['🧭 Yangi DISC: ' + r.fullname + ' — ' + DISC_TYPES.map((t) => t + ' ' + sc.pct[t] + '%').join(' · '), ''];
+  lines.push('🏷 Asosiy tip: ' + sc.primary);
+  lines.push('📞 ' + r.phone + (r.telegram ? ' · ' + r.telegram : ''));
+  const wp = [r.position, r.company].filter(Boolean).join(' · ');
+  if (wp) lines.push('💼 ' + wp);
+  if (env.KABINET_URL) { lines.push(''); lines.push(env.KABINET_URL); }
+  const p = fetch('https://api.telegram.org/bot' + env.TELEGRAM_TOKEN + '/sendMessage', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ chat_id: env.TELEGRAM_CHAT_ID, text: lines.join('\n').slice(0, 4000), disable_web_page_preview: true }),
+  }).catch(() => {});
+  ctx.waitUntil(p);
+}
+
+/* POST /api/disc (ommaviy) */
+async function handleDisc(request, env, ctx) {
+  const ip = clientIp(request);
+  const rlKey = 'rl:disc:' + ip;
+  if ((await rlGet(env, rlKey)) >= 5) return fail(request, 429, "Juda ko'p urinish. Birozdan keyin qayta urinib ko'ring");
+  let b = {};
+  try { b = await request.json(); } catch (e) { return fail(request, 400, "Noto'g'ri so'rov"); }
+  if (!b || typeof b !== 'object' || Array.isArray(b)) return fail(request, 400, "Noto'g'ri so'rov");
+  if (b.website) return reply(request, { ok: true }); // bot tuzog'i (yashirin maydon)
+
+  const fullname = clip(b.fullname, 120);
+  const phone = clip(b.phone, 20);
+  if (fullname.length < 2) return fail(request, 400, 'Ism familiya kerak');
+  if (phone.length < 7 || phone.replace(/\D/g, '').length < 7) return fail(request, 400, 'Telefon raqam kerak');
+  const v = discValidate(b.answers);
+  if (v.error) return fail(request, 400, v.error);
+
+  const sc = discScore(v.answers);
+  const id = 'd' + hex(crypto.getRandomValues(new Uint8Array(8)).buffer), t = now();
+  const row = {
+    id, lang: b.lang === 'ru' ? 'ru' : 'uz', fullname, phone, telegram: clip(b.telegram, 100), position: clip(b.position, 100), company: clip(b.company, 150),
+  };
+  const tms = Math.max(0, Math.min(86400000, Math.round(Number(b.total_ms) || 0)));
+  try {
+    await env.DB.prepare('INSERT INTO disc_results (id, created_at, lang, fullname, phone, telegram, position, company, answers, d, i, s, c, pct, primary_type, total_ms, ua, note, archived) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0)')
+      .bind(id, t, row.lang, fullname, phone, row.telegram, row.position, row.company, JSON.stringify(v.answers), sc.d, sc.i, sc.s, sc.c, JSON.stringify(sc.pct), sc.primary, tms,
+        clip(request.headers.get('User-Agent'), 300), '').run();
+  } catch (e) {
+    return fail(request, 500, 'Saqlab bo\'lmadi');
+  }
+  await rlInc(env, rlKey, 600);
+  notifyDisc(env, ctx, row, sc);
+  return reply(request, { ok: true });
+}
+
+async function listDisc(request, env, url) {
+  const where = ['archived = ?'], args = [url.searchParams.get('archived') === '1' ? 1 : 0];
+  const q = clip(url.searchParams.get('q'), 100);
+  if (q) {
+    const like = '%' + escLike(q) + '%';
+    where.push("(fullname LIKE ? ESCAPE '\\' OR phone LIKE ? ESCAPE '\\' OR telegram LIKE ? ESCAPE '\\' OR position LIKE ? ESCAPE '\\' OR company LIKE ? ESCAPE '\\')");
+    args.push(like, like, like, like, like);
+  }
+  const rs = await env.DB.prepare('SELECT ' + DISC_COLS + ' FROM disc_results WHERE ' + where.join(' AND ') + ' ORDER BY created_at DESC LIMIT 3000').bind(...args).all();
+  return reply(request, { ok: true, results: (rs.results || []).map(fixDisc) });
+}
+
+async function getDisc(request, env, id) {
+  const r = await env.DB.prepare('SELECT ' + DISC_COLS + ', answers FROM disc_results WHERE id = ?').bind(id).first();
+  if (!r) return fail(request, 404, 'Topilmadi');
+  const result = fixDisc(r);
+  result.answers = safeParse(r.answers, {});
+  // har bir javob qaysi tip(lar)ga ball bergani (kalit mijozga yuborilmaydi, shu yerda hisoblanadi)
+  result.letters = {};
+  for (let q = 1; q <= DISC_Q; q++) result.letters[q] = discTypesFor(q, result.answers[q]);
+  return reply(request, { ok: true, result });
+}
+
+async function patchDisc(request, env, id) {
+  let b = {};
+  try { b = await request.json(); } catch (e) { return fail(request, 400, "Noto'g'ri so'rov"); }
+  const cur = await env.DB.prepare('SELECT id FROM disc_results WHERE id = ?').bind(id).first();
+  if (!cur) return fail(request, 404, 'Topilmadi');
+  const sets = [], args = [];
+  if (b.note !== undefined) { sets.push('note = ?'); args.push(clip(b.note, 5000)); }
+  if (b.archived !== undefined) { sets.push('archived = ?'); args.push(b.archived ? 1 : 0); }
+  if (sets.length) await env.DB.prepare('UPDATE disc_results SET ' + sets.join(', ') + ' WHERE id = ?').bind(...args, id).run();
+  return reply(request, { ok: true });
+}
+
+async function deleteDisc(request, env, id) {
+  const r = await env.DB.prepare('SELECT id FROM disc_results WHERE id = ?').bind(id).first();
+  if (!r) return fail(request, 404, 'Topilmadi');
+  await env.DB.prepare('DELETE FROM disc_results WHERE id = ?').bind(id).run();
+  return reply(request, { ok: true });
+}
+
+async function discStats(request, env) {
+  const d7 = new Date(Date.now() - 7 * 86400000).toISOString(), d30 = new Date(Date.now() - 30 * 86400000).toISOString();
+  const [tot, pr, av, w] = await Promise.all([
+    env.DB.prepare('SELECT COUNT(*) AS n FROM disc_results WHERE archived = 0').first(),
+    env.DB.prepare('SELECT primary_type, COUNT(*) AS n FROM disc_results WHERE archived = 0 GROUP BY primary_type').all(),
+    env.DB.prepare("SELECT AVG(json_extract(pct, '$.D')) AS d, AVG(json_extract(pct, '$.I')) AS i, AVG(json_extract(pct, '$.S')) AS s, AVG(json_extract(pct, '$.C')) AS c FROM disc_results WHERE archived = 0").first(),
+    env.DB.prepare('SELECT SUM(created_at >= ?) AS d7, SUM(created_at >= ?) AS d30 FROM disc_results WHERE archived = 0').bind(d7, d30).first(),
+  ]);
+  // primary: bitta harfli tiplar; mixed: teng ball (masalan "D/I") — alohida sanaladi
+  const primary = { D: 0, I: 0, S: 0, C: 0 };
+  let mixed = 0;
+  (pr.results || []).forEach((r) => { if (primary[r.primary_type] !== undefined) primary[r.primary_type] += r.n; else mixed += r.n; });
+  const r1 = (x) => Math.round((Number(x) || 0) * 10) / 10;
+  return reply(request, {
+    ok: true, total: tot.n, primary, mixed,
+    avg_pct: { D: r1(av && av.d), I: r1(av && av.i), S: r1(av && av.s), C: r1(av && av.c) },
+    last7: (w && w.d7) || 0, last30: (w && w.d30) || 0,
+  });
+}
+
 /* ---------- marshrutlash ---------- */
 export default {
   async fetch(request, env, ctx) {
@@ -555,6 +723,7 @@ export default {
       if (path === '/' && m === 'GET') return reply(request, { ok: true, service: 'Nomzod kabinet' });
       if (path === '/api/apply' && m === 'POST') return await handleApply(request, env, ctx);
       if (path === '/api/login' && m === 'POST') return await handleLogin(request, env);
+      if (path === '/api/disc' && m === 'POST') return await handleDisc(request, env, ctx);
       if (path.indexOf('/api/') !== 0) return fail(request, 404, 'Topilmadi');
 
       if (!(await authed(request, env))) return fail(request, 401, 'Kirish talab qilinadi');
@@ -562,6 +731,14 @@ export default {
       if (path === '/api/leads' && m === 'GET') return await listLeads(request, env, url);
       if (path === '/api/leads' && m === 'POST') return await createLead(request, env);
       if (path === '/api/stats' && m === 'GET') return await stats(request, env);
+      if (path === '/api/disc' && m === 'GET') return await listDisc(request, env, url);
+      if (path === '/api/disc/stats' && m === 'GET') return await discStats(request, env);
+      const dm = /^\/api\/disc\/([A-Za-z0-9_-]{1,40})$/.exec(path);
+      if (dm) {
+        if (m === 'GET') return await getDisc(request, env, dm[1]);
+        if (m === 'PATCH') return await patchDisc(request, env, dm[1]);
+        if (m === 'DELETE') return await deleteDisc(request, env, dm[1]);
+      }
       if (path === '/api/export.csv' && m === 'GET') return await exportCsv(request, env);
       const mm = /^\/api\/leads\/([A-Za-z0-9_-]{1,40})(?:\/(notes|cv))?$/.exec(path);
       if (mm) {
