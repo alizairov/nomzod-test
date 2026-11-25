@@ -120,3 +120,16 @@
   .disc-page .alph__thumb{height:24px}
   .disc-page .alph__opt{font-size:.72rem}
 }
+
+/* iOS Safari unumdorligi: og'ir blur, backdrop-filter va transform animatsiyalari olib tashlandi */
+.dmain__bg i{filter:none;opacity:.55}
+.dd{background:radial-gradient(closest-side,var(--dD),transparent)}
+.di{background:radial-gradient(closest-side,var(--dI),transparent)}
+.ds{background:radial-gradient(closest-side,var(--dS),transparent)}
+.dc{background:radial-gradient(closest-side,var(--dC),transparent)}
+.disc-page .alph{backdrop-filter:none;-webkit-backdrop-filter:none}
+@keyframes dIn{from{opacity:0}to{opacity:1}}
+.d-in{animation:dIn .25s ease both}
+.dopt{transition:border-color .15s,background .15s}
+.dopt:active{transform:none}
+@media(hover:hover){.dopt:hover{transform:none}}

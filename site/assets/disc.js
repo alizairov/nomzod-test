@@ -200,7 +200,7 @@
     host.appendChild(screen);
     if (!o.noFocus) {
       var f = screen.querySelector('[data-focus]'); if (f) f.focus({ preventScroll: true });
-      if (!o.noScroll) { try { window.scrollTo({ top: 0, behavior: reduce ? 'auto' : 'smooth' }); } catch (e) { window.scrollTo(0, 0); } }
+      if (!o.noScroll) { window.scrollTo(0, 0); }
     }
   }
 

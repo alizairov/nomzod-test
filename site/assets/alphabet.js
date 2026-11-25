@@ -15,8 +15,8 @@
   window.nmzdText = function (s) { return mode === 'new' ? toNew(s) : s; };
 
   var SKIP = { SCRIPT: 1, STYLE: 1, SVG: 1, svg: 1, NOSCRIPT: 1, TEXTAREA: 1 };
-  var originals = new Map();   // text node -> asl matn
-  var attrOrig = new Map();    // element -> {attr: asl qiymat}
+  var originals = new WeakMap();   // text node -> asl matn
+  var attrOrig = new WeakMap();    // element -> {attr: asl qiymat}
   var ATTRS = ['placeholder', 'aria-label', 'title'];
   var mode = 'new';
   try { var saved = localStorage.getItem(KEY); if (saved === 'old' || saved === 'new') mode = saved; } catch (e) {}
@@ -27,42 +27,55 @@
     }
     return false;
   }
-  function apply() {
-    var walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT, null);
-    var n;
-    while ((n = walker.nextNode())) {
-      if (!n.nodeValue.trim() || skipped(n.parentNode)) continue;
-      if (!originals.has(n)) originals.set(n, n.nodeValue);
-      var o = originals.get(n);
-      var v = mode === 'new' ? toNew(o) : o;
-      if (n.nodeValue !== v) n.nodeValue = v;
-    }
-    document.querySelectorAll('[placeholder],[aria-label],[title]').forEach(function (el) {
-      if (skipped(el)) return;
-      var rec = attrOrig.get(el) || {};
-      ATTRS.forEach(function (a) {
-        if (!el.hasAttribute(a)) return;
-        if (!(a in rec)) rec[a] = el.getAttribute(a);
-        el.setAttribute(a, mode === 'new' ? toNew(rec[a]) : rec[a]);
-      });
-      attrOrig.set(el, rec);
+  function convNode(n) {
+    if (!n.nodeValue.trim() || skipped(n.parentNode)) return;
+    if (!originals.has(n)) originals.set(n, n.nodeValue);
+    var o = originals.get(n);
+    var v = mode === 'new' ? toNew(o) : o;
+    if (n.nodeValue !== v) n.nodeValue = v;
+  }
+  function convAttrs(el) {
+    if (skipped(el)) return;
+    var rec = attrOrig.get(el) || {};
+    ATTRS.forEach(function (a) {
+      if (!el.hasAttribute(a)) return;
+      if (!(a in rec)) rec[a] = el.getAttribute(a);
+      var v = mode === 'new' ? toNew(rec[a]) : rec[a];
+      if (el.getAttribute(a) !== v) el.setAttribute(a, v);
     });
+    attrOrig.set(el, rec);
+  }
+  // root ichidagi matn va atributlarni o'giradi
+  function apply(root) {
+    if (root.nodeType === 3) { convNode(root); return; }
+    if (root.nodeType !== 1) return;
+    var walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, null);
+    var n;
+    while ((n = walker.nextNode())) convNode(n);
+    if (root.matches('[placeholder],[aria-label],[title]')) convAttrs(root);
+    root.querySelectorAll('[placeholder],[aria-label],[title]').forEach(convAttrs);
+  }
+  function applyAll() {
+    apply(document.body);
     document.title = mode === 'new' ? toNew(titleOrig) : titleOrig;
-    var sw = document.getElementById('alph');
-    if (sw) sw.setAttribute('aria-checked', String(mode === 'new'));
+    var swEl = document.getElementById('alph');
+    if (swEl) swEl.setAttribute('aria-checked', String(mode === 'new'));
     document.documentElement.setAttribute('data-alifbo', mode);
   }
   var titleOrig = document.title;
 
   // JS orqali qo'shilgan yoki o'zgargan matnlar (xato/xabarlar) ham o'girilsin
   var OPTS = { childList: true, subtree: true, characterData: true };
+  // faqat qo'shilgan/o'zgargan qismlar o'giriladi (butun sahifa emas) — telefonlarda qotib qolmasligi uchun
   var mo = new MutationObserver(function (list) {
+    mo.disconnect();
     list.forEach(function (m) {
-      if (m.type === 'characterData') originals.set(m.target, m.target.nodeValue);
+      if (m.type === 'characterData') { originals.set(m.target, m.target.nodeValue); convNode(m.target); }
+      else for (var k = 0; k < m.addedNodes.length; k++) { var a = m.addedNodes[k]; if (a.isConnected) apply(a); }
     });
-    run();
+    mo.observe(document.body, OPTS);
   });
-  function run() { mo.disconnect(); apply(); mo.observe(document.body, OPTS); }
+  function run() { mo.disconnect(); applyAll(); mo.observe(document.body, OPTS); }
 
   var sw = document.getElementById('alph');
   if (sw) sw.addEventListener('click', function () {
