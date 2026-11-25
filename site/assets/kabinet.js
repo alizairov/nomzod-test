@@ -1699,13 +1699,29 @@
     function row(k, v) { if (!v) return; ct.appendChild(h('dt', { text: k })); ct.appendChild(typeof v === 'string' ? h('dd', { text: v }) : h('dd', {}, [v])); }
     row('Telefon', tel ? h('a', { href: tel, text: r.phone }) : r.phone);
     row('Telegram', tg ? h('a', { href: 'https://t.me/' + tg, target: '_blank', rel: 'noopener noreferrer', text: r.telegram }) : r.telegram);
-    row('Lavozim', r.position); row('Kompaniya', r.company);
     row('Test tili', r.lang === 'ru' ? 'Русский' : u("O'zbekça"));
     row(u('Sarflangan vaqt'), fmtDur(r.total_ms));
+    function editInp(key, id, label, ph) {
+      var inp = h('input', { class: 'inp', id: id, type: 'text', maxlength: '120', placeholder: ph, autocomplete: 'off', value: r[key] || '' });
+      var was = r[key] || '';
+      function save() {
+        var v = inp.value.trim(); if (v === was) return;
+        var b = {}; b[key] = v;
+        patchDisc(r.id, b, 'Saqlandi').then(function () { was = v; paintDList(); }, function () {});
+      }
+      inp.addEventListener('blur', save);
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); inp.blur(); } });
+      return h('label', { class: 'field dedit' }, [h('span', { text: label }), inp]);
+    }
+    var cedit = h('div', { class: 'dedits' }, [
+      editInp('company', 'dd-company', 'Kompaniya', u("Kompaniyani biriktiring")),
+      editInp('position', 'dd-position', 'Lavozim', u("Masalan: HR menejer"))
+    ]);
     var tinfos = h('div', { class: 'tinfos' }, letters(r.primary).map(typeInfo));
     var body = h('div', { class: 'dw__body' }, [
       secEl(u('Natija'), [bigBars(r), r.primary && letters(r.primary).length > 1 ? h('p', { class: 'dtie', text: u("Bir nechta tipda ball teng — barcha tavsiflarni ko'rib chiqing.") }) : null]),
       secEl(u('Asosiy tip'), [tinfos]),
+      secEl(u('Kompaniya va lavozim'), [cedit, h('p', { class: 'dedits__hint', text: u("Nomzod kiritmagan bölsa, özingiz yozib qöying — maydondan çiqqanda saqlanadi.") })]),
       secEl(u("Aloqa ma'lumotlari"), [ct]),
       secEl('Izoh', [note]),
       secEl(u('Javoblar'), [d.full ? answersList(r) : h('div', { class: 'dans' }, [h('p', { class: 'dq-load', text: 'Yuklanmoqda…' })])])

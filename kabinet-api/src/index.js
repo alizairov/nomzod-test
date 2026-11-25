@@ -681,6 +681,8 @@ async function patchDisc(request, env, id) {
   const sets = [], args = [];
   if (b.note !== undefined) { sets.push('note = ?'); args.push(clip(b.note, 5000)); }
   if (b.archived !== undefined) { sets.push('archived = ?'); args.push(b.archived ? 1 : 0); }
+  if (b.company !== undefined) { sets.push('company = ?'); args.push(clip(b.company, 120)); }
+  if (b.position !== undefined) { sets.push('position = ?'); args.push(clip(b.position, 120)); }
   if (sets.length) await env.DB.prepare('UPDATE disc_results SET ' + sets.join(', ') + ' WHERE id = ?').bind(...args, id).run();
   return reply(request, { ok: true });
 }

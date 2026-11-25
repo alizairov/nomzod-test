@@ -515,3 +515,5 @@ textarea.dnote{resize:vertical;min-height:72px}
   .topbar .btn--ghost{padding:7px 9px;font-size:.82rem;gap:5px}
   .seg--dark button{padding:6px 9px;font-size:.85rem}
 }
+
+.dedits{display:grid;grid-template-columns:1fr 1fr;gap:12px}.dedits .field{margin:0}.dedits__hint{margin:8px 0 0;font-size:13px;opacity:.65}@media(max-width:560px){.dedits{grid-template-columns:1fr}}
