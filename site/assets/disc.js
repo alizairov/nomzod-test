@@ -152,7 +152,7 @@
   }
 
   function dots() {
-    return h('div', { class: 'dquad', 'aria-hidden': 'true' }, ['D', 'I', 'S', 'C'].map(function (x) { return h('i', { class: 'dq-' + x.toLowerCase(), text: x, 'data-noconv': '' }); }));
+    return h('div', { class: 'dquad', 'aria-hidden': 'true' }, ['D', 'I', 'S', 'C'].map(function (x) { return h('i', { class: 'dq-' + x.toLowerCase() }); }));
   }
   function restoredBar() {
     if (!restoredNote) return null;
