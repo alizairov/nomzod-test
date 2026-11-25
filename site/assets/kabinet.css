@@ -517,3 +517,16 @@ textarea.dnote{resize:vertical;min-height:72px}
 }
 
 .dedits{display:grid;grid-template-columns:1fr 1fr;gap:12px}.dedits .field{margin:0}.dedits__hint{margin:8px 0 0;font-size:13px;opacity:.65}@media(max-width:560px){.dedits{grid-template-columns:1fr}}
+
+/* ───────── natijani yuklab olish paneli ───────── */
+.xpanel{flex:1 1 100%;display:grid;gap:12px;padding:14px;border:1px solid var(--line);border-radius:12px;background:#fff;animation:fade .15s}
+.xpanel[hidden]{display:none}
+.xpanel__r{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
+.xpanel__r--b{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.xpanel__l{font-size:.85rem;color:var(--faint);font-weight:500}
+.xpanel__h{margin:0;font-size:.8rem;color:var(--faint);line-height:1.4}
+.xseg{display:inline-flex;padding:3px;border-radius:10px;background:var(--mist)}
+.xseg__b{border:0;background:none;padding:7px 14px;border-radius:8px;font-weight:500;font-size:.9rem;color:var(--muted);min-height:34px}
+.xseg__b[aria-pressed="true"]{background:#fff;color:var(--navy);box-shadow:0 1px 3px rgba(20,21,42,.18)}
+.xact{min-height:44px}
+.xact.is-busy{opacity:.55;cursor:progress}
