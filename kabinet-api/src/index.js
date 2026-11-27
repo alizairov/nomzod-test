@@ -5,7 +5,7 @@
  * Baholash mantig'i site/apps-script/Vakansiya.gs dagi score_ ning aniq ko'chirmasi.
  */
 
-const STATUSES = ['yangi', 'saralash', 'telefon', 'suhbat', 'taqdim', 'mijoz', 'taklif', 'joylashdi', 'zaxira', 'rad'];
+const STATUSES = ['amaliyot', 'yangi', 'saralash', 'telefon', 'suhbat', 'taqdim', 'mijoz', 'taklif', 'joylashdi', 'zaxira', 'rad'];
 const BOT_MS = 8000;
 const CV_MAX = 5 * 1024 * 1024;
 const CV_EXT = { pdf: 'application/pdf', doc: 'application/msword', docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png' };
@@ -66,6 +66,9 @@ const VAKANSIYALAR = {
     },
   },
 };
+
+/* Amaliyot arizalari alohida "Amaliyot" ustuniga tushadi */
+const startStatus = (vac) => (vac === 'amaliyot' ? 'amaliyot' : 'yangi');
 
 function typesOf(s, cfg) {
   if (!cfg.hasTypes) return [];
@@ -290,7 +293,7 @@ async function handleApply(request, env, ctx) {
       env.DB.prepare('INSERT INTO leads (id, created_at, updated_at, vacancy, vacancy_title, fullname, phone, telegram, types, cv_key, cv_name, cv_mime, yn, answers, scores, ball, xulosa, status, position, total_ms, page, ua, archived) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,0)')
         .bind(id, t, t, vac, lead.vacancy_title, fullname, phone, lead.telegram, answers.types.join(','), cvKey, cvName || null, cvMime || null,
           JSON.stringify(answers.yn), JSON.stringify({ test, savol: answers.savol }), scores ? JSON.stringify(scores) : null,
-          sc ? sc.ball : null, sc ? sc.xulosa : null, 'yangi', -Date.now(), Math.round(tms), clip(f('page'), 500), clip(f('ua'), 300)),
+          sc ? sc.ball : null, sc ? sc.xulosa : null, startStatus(vac), -Date.now(), Math.round(tms), clip(f('page'), 500), clip(f('ua'), 300)),
       env.DB.prepare('INSERT INTO events (lead_id, at, type, text) VALUES (?,?,?,?)').bind(id, t, 'create', 'Anketa yuborildi'),
     ]);
   } catch (e) {
@@ -496,7 +499,7 @@ async function createLead(request, env) {
   const id = newId(), t = now();
   await env.DB.batch([
     env.DB.prepare('INSERT INTO leads (id, created_at, updated_at, vacancy, vacancy_title, fullname, phone, telegram, types, status, position, archived) VALUES (?,?,?,?,?,?,?,?,?,?,?,0)')
-      .bind(id, t, t, vac, VAKANSIYALAR[vac].title, fullname, clip(b.phone, 50), clip(b.telegram, 100), '', 'yangi', -Date.now()),
+      .bind(id, t, t, vac, VAKANSIYALAR[vac].title, fullname, clip(b.phone, 50), clip(b.telegram, 100), '', startStatus(vac), -Date.now()),
     env.DB.prepare('INSERT INTO events (lead_id, at, type, text) VALUES (?,?,?,?)').bind(id, t, 'create', "Qo'lda qo'shildi: " + source),
   ]);
   return reply(request, { ok: true, id }, 201);

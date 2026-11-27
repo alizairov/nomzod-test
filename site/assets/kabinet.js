@@ -12,6 +12,7 @@
 
   /* ---------- ustunlar (pipeline) ---------- */
   var COLS = [
+    { id: 'amaliyot', t: 'Amaliyot', c: '#1F7A4D' },
     { id: 'yangi', t: 'Yangi', c: '#3A3D6E' },
     { id: 'saralash', t: 'Saralanmoqda', c: '#5560B0' },
     { id: 'telefon', t: 'Telefon suhbati', c: '#7A2E5C' },
