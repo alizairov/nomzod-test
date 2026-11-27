@@ -46,6 +46,25 @@ var VAKANSIYALAR = {
       return { belgilar: b, izoh: [] };
     }
   },
+  amaliyot: {
+    title: 'HR amaliyotchi',
+    sheet: 'Amaliyot',
+    hasTypes: false,
+    sifatlar: ['Qaror qabul qilish', 'Puxtalik', 'Muammoni hal qilish', 'Fidbekka ochiqlik', 'Muloqot (rekruting)', "Yangi xodimga e'tibor (onboarding)"],
+    yn: [['y1', 'Odamlar bilan ishlash tajribasi'], ['y2', 'Tadbir/loyiha tashkil qilgan'], ['y3', "Notanishlarga qo'ng'iroq"],
+      ['y4', 'Sheets / Excel'], ['y5', 'Rus tili'], ['y6', 'Toshkent, ofis, amaliyot']],
+    tajribaHeader: 'Tayyorgarlik (Ha / 4)',
+    tajribaScale: [0, 2, 4],
+    tajriba: function (yn) { var n = 0; ['y1', 'y2', 'y3', 'y4'].forEach(function (k) { if (yn[k] === 'ha') n++; }); return { n: n, m: 4 }; },
+    tajribaText: function (t) { return t.n + ' / ' + t.m; },
+    flags: function (yn) {
+      var b = [], z = [];
+      if (yn.y6 === 'yoq') b.push("Toshkentda, ofisda amaliyot o'ta olmaydi");
+      if (yn.y3 === 'yoq') z.push("Notanish odamlar bilan gaplashish qiyin — rekrutingga moslash kerak");
+      if (yn.y5 === 'yoq') z.push('Rus tilida erkin gaplasha olmaydi');
+      return { belgilar: b, izoh: z };
+    }
+  },
   sotuv: {
     title: 'Sotuv menejeri',
     sheet: 'Sotuv',

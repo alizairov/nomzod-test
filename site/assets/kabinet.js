@@ -24,7 +24,7 @@
     { id: 'rad', t: 'Rad etildi', c: '#9A9BB0', side: true }
   ];
   var COLMAP = {}; COLS.forEach(function (c) { COLMAP[c.id] = c; });
-  var VAC_NAME = { hr: 'HR', sotuv: 'Sotuv' };
+  var VAC_NAME = { hr: 'HR', sotuv: 'Sotuv', amaliyot: 'Amaliyot' };
   var TYPE_NAME = { call: 'Qönğiroq', reception: 'Reception' };
 
   /* ---------- eski alifbodan yangisiga (faqat testlar matni va server xabarlari uchun) ---------- */
@@ -151,7 +151,7 @@
       doc.head.appendChild(s);
     });
   }
-  var testsReady = loadTest('hr').then(function () { return loadTest('sotuv'); });
+  var testsReady = loadTest('hr').then(function () { return loadTest('sotuv'); }).then(function () { return loadTest('amaliyot'); });
 
   /* ---------- holat ---------- */
   var S = { leads: [], loaded: false, q: '', vac: ui.vac || '', xul: ui.xul || '', archived: !!ui.archived, mob: 'yangi', drawer: null, last: 0 };
@@ -220,9 +220,9 @@
     S.loaded = false;
     var search = h('input', { class: 'inp', type: 'search', id: 'q', placeholder: 'Ism, telefon yoki Telegram', 'aria-label': 'Nomzodni qidiriş', autocomplete: 'off', value: S.q });
     search.addEventListener('input', function () { S.q = search.value; renderBoard(); });
-    var vacBtns = [['', 'Barçasi'], ['hr', 'HR'], ['sotuv', 'Sotuv']].map(function (v) {
+    var vacBtns = [['', 'Barçasi'], ['hr', 'HR'], ['sotuv', 'Sotuv'], ['amaliyot', 'Amaliyot']].map(function (v) {
       var b = h('button', { type: 'button', 'aria-pressed': String(S.vac === v[0]), text: v[1] });
-      b.addEventListener('click', function () { S.vac = v[0]; ui.vac = v[0]; saveUi(); vacBtns.forEach(function (x, i) { x.setAttribute('aria-pressed', String([''].concat(['hr', 'sotuv'])[i] === S.vac)); }); renderBoard(); });
+      b.addEventListener('click', function () { S.vac = v[0]; ui.vac = v[0]; saveUi(); vacBtns.forEach(function (x, i) { x.setAttribute('aria-pressed', String([''].concat(['hr', 'sotuv', 'amaliyot'])[i] === S.vac)); }); renderBoard(); });
       return b;
     });
     var xsel = h('select', { class: 'sel', 'aria-label': 'Xulosa böyiça filtr' }, [
@@ -349,7 +349,7 @@
     var x = xk(l.xulosa);
     var top = h('div', { class: 'card__top' }, [h('div', { class: 'card__name', text: l.fullname || '—' })]);
     if (l.has_cv) top.appendChild(h('span', { class: 'card__cv', title: 'Rezyume bor' }, [icon('clip')]));
-    var row = h('div', { class: 'card__row' }, [h('span', { class: 'chip chip--' + (l.vacancy === 'sotuv' ? 'sotuv' : 'hr'), text: VAC_NAME[l.vacancy] || l.vacancy || '' })]);
+    var row = h('div', { class: 'card__row' }, [h('span', { class: 'chip chip--' + (l.vacancy === 'sotuv' || l.vacancy === 'amaliyot' ? l.vacancy : 'hr'), text: VAC_NAME[l.vacancy] || l.vacancy || '' })]);
     typesOf(l).forEach(function (t) { row.appendChild(h('span', { class: 'chip chip--t', text: TYPE_NAME[t] })); });
     if (l.ball !== null && l.ball !== undefined) {
       row.appendChild(h('span', { class: 'ball', title: x ? toNew(l.xulosa) : '' }, [h('span', { class: 'dot dot--' + (x || 'none') }), l.ball + '/100']));
@@ -640,7 +640,7 @@
     dw.textContent = '';
     var close = h('button', { class: 'btn btn--line btn--icon dw__close', type: 'button', 'aria-label': 'Yopiş' }, [icon('x')]);
     close.addEventListener('click', function () { closeDrawer(); });
-    var meta = h('div', { class: 'dw__meta' }, [h('span', { class: 'chip chip--' + (l.vacancy === 'sotuv' ? 'sotuv' : 'hr'), text: VAC_NAME[l.vacancy] || l.vacancy || '' })]);
+    var meta = h('div', { class: 'dw__meta' }, [h('span', { class: 'chip chip--' + (l.vacancy === 'sotuv' || l.vacancy === 'amaliyot' ? l.vacancy : 'hr'), text: VAC_NAME[l.vacancy] || l.vacancy || '' })]);
     typesOf(l).forEach(function (t) { meta.appendChild(h('span', { class: 'chip chip--t', text: TYPE_NAME[t] })); });
     meta.appendChild(h('span', { title: fmtDate(l.created_at), text: fmtDate(l.created_at) + ' · ' + rel(l.created_at) }));
     if (l.archived) meta.appendChild(h('span', { class: 'chip chip--warn', text: 'Arxivda' }));
@@ -1315,7 +1315,7 @@
     var name = h('input', { class: 'inp', id: 'ad-n', type: 'text', maxlength: '200', required: true, autocomplete: 'off' });
     var phone = h('input', { class: 'inp', id: 'ad-p', type: 'tel', maxlength: '50', placeholder: '+998 ', autocomplete: 'off' });
     var tg = h('input', { class: 'inp', id: 'ad-t', type: 'text', maxlength: '100', placeholder: '@username', autocomplete: 'off', autocapitalize: 'none' });
-    var vac = h('select', { class: 'inp', id: 'ad-v' }, [h('option', { value: 'hr', text: 'HR mutaxassis' }), h('option', { value: 'sotuv', text: 'Sotuv menejeri' })]);
+    var vac = h('select', { class: 'inp', id: 'ad-v' }, [h('option', { value: 'hr', text: 'HR mutaxassis' }), h('option', { value: 'sotuv', text: 'Sotuv menejeri' }), h('option', { value: 'amaliyot', text: 'HR amaliyotchi' })]);
     if (S.vac) vac.value = S.vac;
     var src = h('input', { class: 'inp', id: 'ad-s', type: 'text', maxlength: '300', placeholder: 'Masalan: Instagram, tavsiya, hh.uz', autocomplete: 'off' });
     var err = h('p', { class: 'msg', role: 'alert', hidden: true });

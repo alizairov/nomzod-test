@@ -195,7 +195,8 @@ window.NOMZOD_SCREENING = {
     { id: "tajriba", text: "Tajriba mosligi" },
     { id: "madaniyat", text: "Jamoaga va madaniyatga moslik" },
     { id: "kasbiy", for: "hr", text: "Kasbiy bilim (HR)" },
-    { id: "ishontirish", for: "sotuv", text: "Ishontirish va sotuv qobiliyati" }
+    { id: "ishontirish", for: "sotuv", text: "Ishontirish va sotuv qobiliyati" },
+    { id: "organish", for: "amaliyot", text: "O'rganishga tayyorlik va tezlik" }
   ],
 
   /* Yakuniy qaror */

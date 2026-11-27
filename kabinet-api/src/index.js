@@ -29,6 +29,20 @@ const VAKANSIYALAR = {
       return { belgilar: b, izoh: [] };
     },
   },
+  amaliyot: {
+    title: 'HR amaliyotchi',
+    hasTypes: false,
+    yn: [['y1'], ['y2'], ['y3'], ['y4'], ['y5'], ['y6']],
+    tajriba(yn) { let n = 0; ['y1', 'y2', 'y3', 'y4'].forEach((k) => { if (yn[k] === 'ha') n++; }); return { n, m: 4 }; },
+    tajribaText(t) { return t.n + ' / ' + t.m; },
+    flags(yn) {
+      const b = [], z = [];
+      if (yn.y6 === 'yoq') b.push("Toshkentda, ofisda amaliyot o'ta olmaydi");
+      if (yn.y3 === 'yoq') z.push("Notanish odamlar bilan gaplashish qiyin — rekrutingga moslash kerak");
+      if (yn.y5 === 'yoq') z.push('Rus tilida erkin gaplasha olmaydi');
+      return { belgilar: b, izoh: z };
+    },
+  },
   sotuv: {
     title: 'Sotuv menejeri',
     hasTypes: true,

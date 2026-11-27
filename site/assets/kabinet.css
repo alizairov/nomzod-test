@@ -140,6 +140,7 @@ textarea.inp{resize:vertical;min-height:84px}
 .chip{display:inline-flex;align-items:center;gap:5px;font-size:.74rem;font-weight:500;line-height:1;padding:4px 8px;border-radius:999px;background:var(--mist);color:var(--indigo)}
 .chip--hr{background:#E7E8F9;color:var(--indigo)}
 .chip--sotuv{background:#FBE6EA;color:#A32A3C}
+.chip--amaliyot{background:#E3F4EC;color:#1F7A4D}
 .chip--t{background:#F0F0F5;color:var(--muted)}
 .chip--warn{background:var(--warn-bg);color:var(--warn)}
 .chip--client{background:#E9F4F6;color:#1F6577;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
